@@ -1,195 +1,120 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { versionAPI, branchAPI } from '../services/api';
 import {
-    createVersion as createVersionLocal,
+    saveVersions,
+    loadVersions,
+    saveBranches,
+    loadBranches,
+    saveCurrentBranch,
+    loadCurrentBranch,
+} from '../utils/storage';
+import {
+    createVersion,
     getDiff,
     mergeVersions,
     findCommonAncestor,
+    getVersionChain,
     hasChanges,
 } from '../utils/versionControl';
 
 /**
  * Custom hook for managing version control state and operations
- * Uses backend API for persistent storage with localStorage fallback
- * Optimized for performance using O(1) Map lookups and memoized derived state.
  */
-export function useVersionControl() {
+/**
+ * Custom hook for managing version control state and operations
+ * @param {string} projectId - The project ID
+ */
+export function useVersionControl(projectId) {
     // Core state
     const [versions, setVersions] = useState([]);
     const [branches, setBranches] = useState({ main: null });
     const [currentBranch, setCurrentBranch] = useState('main');
     const [currentVersion, setCurrentVersion] = useState(null);
-    const [currentData, setCurrentData] = useState({});
+    const [currentData, setCurrentData] = useState({}); // Now generic object or string wrapper
     const [selectedVersions, setSelectedVersions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [useLocalStorage, setUseLocalStorage] = useState(false);
 
-    // Optimized O(1) lookup map (js-index-maps)
-    const versionsMap = useMemo(() => {
-        const map = new Map();
-        versions.forEach(v => map.set(v.versionId || v.id, v));
-        return map;
-    }, [versions]);
-
-    // Load initial data from backend
+    // Initialize from localStorage
     useEffect(() => {
-        loadAllData();
-    }, []);
-
-    const loadAllData = useCallback(async () => {
-        setIsLoading(true);
-        setError(null);
-
-        try {
-            // Load versions and branches in parallel
-            const [versionsRes, branchesRes] = await Promise.all([
-                versionAPI.getAll(),
-                branchAPI.getAll()
-            ]);
-
-            // Transform versions to match frontend format (use versionId as id)
-            const transformedVersions = versionsRes.data.map(v => ({
-                ...v,
-                id: v.versionId
-            }));
-            setVersions(transformedVersions);
-
-            // Convert branches array to object
-            const branchesObj = {};
-            branchesRes.data.forEach(branch => {
-                branchesObj[branch.name] = branch.versionId;
-            });
-
-            // Ensure main branch exists in object
-            if (!branchesObj.main && transformedVersions.length === 0) {
-                branchesObj.main = null;
-            }
-            setBranches(branchesObj);
-
-            // Get active branch (don't log error if none exists, just use 'main')
-            try {
-                const activeRes = await branchAPI.getActive();
-                if (!activeRes.data) {
-                    throw new Error('No active branch');
-                }
-
-                setCurrentBranch(activeRes.data.name);
-                if (activeRes.data.version) {
-                    const transformedVersion = {
-                        ...activeRes.data.version,
-                        id: activeRes.data.version.versionId
-                    };
-                    setCurrentVersion(transformedVersion);
-                    setCurrentData(activeRes.data.version?.data || {});
-                }
-            } catch {
-                // No active branch found - this is expected for new databases
-                // Silently fallback to 'main' branch
-                setCurrentBranch('main');
-                // Set current version to latest if available
-                if (transformedVersions.length > 0 && branchesObj.main) {
-                    const mainVersion = transformedVersions.find(v => (v.versionId || v.id) === branchesObj.main);
-                    if (mainVersion) {
-                        setCurrentVersion(mainVersion);
-                        setCurrentData(mainVersion.data || {});
-                    }
-                }
-            }
-
-            setUseLocalStorage(false);
-        } catch (err) {
-            console.error('Failed to load from backend, using localStorage fallback:', err);
-            setError(err.message);
-            // Fallback to localStorage implementation
-            loadFromLocalStorage();
-            setUseLocalStorage(true);
-        } finally {
+        if (!projectId) {
             setIsLoading(false);
+            return;
         }
-    }, []);
 
-    const loadFromLocalStorage = () => {
-        // Import storage utilities dynamically for fallback
-        import('../utils/storage').then(({ loadVersions, loadBranches, loadCurrentBranch }) => {
-            const storedVersions = loadVersions();
-            const storedBranches = loadBranches();
-            const storedCurrentBranch = loadCurrentBranch();
+        setIsLoading(true);
+        const storedVersions = loadVersions(projectId);
+        const storedBranches = loadBranches(projectId);
+        const storedCurrentBranch = loadCurrentBranch(projectId);
 
-            setVersions(storedVersions);
-            setBranches(storedBranches);
-            setCurrentBranch(storedCurrentBranch);
+        setVersions(storedVersions);
+        setBranches(storedBranches);
+        setCurrentBranch(storedCurrentBranch);
 
-            if (storedVersions.length > 0) {
-                const branchVersionId = storedBranches[storedCurrentBranch];
-                const headVersion = storedVersions.find(v => v.id === branchVersionId);
-                if (headVersion) {
-                    setCurrentVersion(headVersion);
-                    setCurrentData(JSON.parse(JSON.stringify(headVersion.data)));
-                }
+        // Set current version and data based on branch
+        if (storedVersions.length > 0) {
+            const branchVersionId = storedBranches[storedCurrentBranch];
+            const headVersion = storedVersions.find(v => v.id === branchVersionId);
+            if (headVersion) {
+                setCurrentVersion(headVersion);
+                // Deep clone data to avoid reference issues
+                setCurrentData(JSON.parse(JSON.stringify(headVersion.data)));
+            } else {
+                // If branch points to non-existent version (shouldn't happen), reset
+                setCurrentVersion(null);
+                setCurrentData({});
             }
-        });
-    };
+        } else {
+            setCurrentVersion(null);
+            setCurrentData({});
+        }
+
+        setIsLoading(false);
+    }, [projectId]);
+
+    // Save to localStorage when state changes
+    useEffect(() => {
+        if (!isLoading && projectId) {
+            saveVersions(projectId, versions);
+        }
+    }, [versions, isLoading, projectId]);
+
+    useEffect(() => {
+        if (!isLoading && projectId) {
+            saveBranches(projectId, branches);
+        }
+    }, [branches, isLoading, projectId]);
+
+    useEffect(() => {
+        if (!isLoading && projectId) {
+            saveCurrentBranch(projectId, currentBranch);
+        }
+    }, [currentBranch, isLoading, projectId]);
 
     /**
      * Commit current changes as a new version
      */
-    const commitVersion = useCallback(async (message, author = 'User') => {
+    const commitVersion = useCallback((message, author = 'User') => {
         if (!message?.trim()) {
             throw new Error('Commit message is required');
         }
 
-        try {
-            const parentId = currentVersion?.versionId || currentVersion?.id || null;
+        const parentId = currentVersion?.id || null;
+        const newVersion = createVersion(currentData, parentId, message.trim(), author);
 
-            // Create version via API
-            const response = await versionAPI.create({
-                parentId,
-                data: currentData,
-                message: message.trim(),
-                author
-            });
+        setVersions(prev => [...prev, newVersion]);
+        setBranches(prev => ({
+            ...prev,
+            [currentBranch]: newVersion.id,
+        }));
+        setCurrentVersion(newVersion);
+        setSelectedVersions([]);
 
-            const newVersion = {
-                ...response.data,
-                id: response.data.versionId
-            };
-
-            // Update local state
-            setVersions(prev => [newVersion, ...prev]);
-            setCurrentVersion(newVersion);
-            setSelectedVersions([]);
-
-            // Update branch pointer
-            if (currentBranch) {
-                try {
-                    await branchAPI.update(currentBranch, newVersion.versionId);
-                } catch (err) {
-                    // Branch might not exist, create it
-                    try {
-                        await branchAPI.create({ name: currentBranch, versionId: newVersion.versionId });
-                    } catch (createErr) {
-                        console.error('Failed to update/create branch:', createErr);
-                    }
-                }
-            }
-
-            setBranches(prev => ({
-                ...prev,
-                [currentBranch]: newVersion.versionId
-            }));
-
-            return newVersion;
-        } catch (err) {
-            setError(err.message);
-            throw err;
-        }
+        return newVersion;
     }, [currentData, currentVersion, currentBranch]);
 
     /**
      * Create a new branch from a specific version
      */
-    const createBranch = useCallback(async (branchName, fromVersionId) => {
+    const createBranch = useCallback((branchName, fromVersionId) => {
         const name = branchName?.trim();
 
         if (!name) {
@@ -204,78 +129,48 @@ export function useVersionControl() {
             throw new Error(`Branch "${name}" already exists`);
         }
 
-        const versionId = fromVersionId || currentVersion?.versionId || currentVersion?.id;
+        const versionId = fromVersionId || currentVersion?.id;
         if (!versionId) {
             throw new Error('No version to branch from');
         }
 
-        const version = versionsMap.get(versionId);
+        const version = versions.find(v => v.id === versionId);
         if (!version) {
             throw new Error('Source version not found');
         }
 
-        try {
-            await branchAPI.create({ name, versionId });
-            await branchAPI.setActive(name);
+        setBranches(prev => ({
+            ...prev,
+            [name]: versionId,
+        }));
+        setCurrentBranch(name);
+        setCurrentVersion(version);
+        setCurrentData(JSON.parse(JSON.stringify(version.data)));
 
-            setBranches(prev => ({
-                ...prev,
-                [name]: versionId,
-            }));
-            setCurrentBranch(name);
-            setCurrentVersion(version);
-            setCurrentData(JSON.parse(JSON.stringify(version.data)));
-
-            return { name, versionId };
-        } catch (err) {
-            setError(err.message);
-            throw err;
-        }
+        return { name, versionId };
     }, [branches, currentVersion, versions]);
 
     /**
      * Switch to a different branch
      */
-    const switchBranch = useCallback(async (branchName) => {
+    const switchBranch = useCallback((branchName) => {
         if (!branches[branchName]) {
             throw new Error(`Branch "${branchName}" does not exist`);
         }
 
-        try {
-            const response = await branchAPI.getOne(branchName);
-            const branch = response.data;
+        const versionId = branches[branchName];
+        const version = versions.find(v => v.id === versionId);
 
-            await branchAPI.setActive(branchName);
-
-            setCurrentBranch(branchName);
-            if (branch.version) {
-                const transformedVersion = {
-                    ...branch.version,
-                    id: branch.version.versionId
-                };
-                setCurrentVersion(transformedVersion);
-                setCurrentData(branch.version.data || {});
-            } else {
-                setCurrentVersion(null);
-                setCurrentData({});
-            }
-            setSelectedVersions([]);
-        } catch (err) {
-            // Fallback to local state
-            const versionId = branches[branchName];
-            const version = versionsMap.get(versionId);
-
-            setCurrentBranch(branchName);
-            setCurrentVersion(version || null);
-            setCurrentData(version ? JSON.parse(JSON.stringify(version.data)) : {});
-            setSelectedVersions([]);
-        }
+        setCurrentBranch(branchName);
+        setCurrentVersion(version || null);
+        setCurrentData(version ? JSON.parse(JSON.stringify(version.data)) : {});
+        setSelectedVersions([]);
     }, [branches, versions]);
 
     /**
      * Delete a branch
      */
-    const deleteBranch = useCallback(async (branchName) => {
+    const deleteBranch = useCallback((branchName) => {
         if (branchName === 'main') {
             throw new Error('Cannot delete the main branch');
         }
@@ -288,98 +183,26 @@ export function useVersionControl() {
             throw new Error(`Branch "${branchName}" does not exist`);
         }
 
-        try {
-            await branchAPI.delete(branchName);
-
-            setBranches(prev => {
-                const newBranches = { ...prev };
-                delete newBranches[branchName];
-                return newBranches;
-            });
-        } catch (err) {
-            setError(err.message);
-            throw err;
-        }
+        setBranches(prev => {
+            const newBranches = { ...prev };
+            delete newBranches[branchName];
+            return newBranches;
+        });
     }, [branches, currentBranch]);
 
     /**
      * Rollback to a specific version
      */
-    const rollbackToVersion = useCallback(async (versionId) => {
-        const version = versionsMap.get(versionId);
+    const rollbackToVersion = useCallback((versionId) => {
+        const version = versions.find(v => v.id === versionId);
 
         if (!version) {
             throw new Error('Version not found');
         }
 
         setCurrentData(JSON.parse(JSON.stringify(version.data)));
+        // Note: Does not create a new version - user must commit
     }, [versions]);
-
-    /**
-     * Hard rollback - deletes all versions after the target version
-     * and updates current branch to point to the target version
-     */
-    const hardRollback = useCallback(async (targetVersionId) => {
-        const targetVersion = versionsMap.get(targetVersionId);
-
-        if (!targetVersion) {
-            throw new Error('Target version not found');
-        }
-
-        const targetTimestamp = new Date(targetVersion.timestamp);
-
-        // Find all versions created AFTER the target version
-        const versionsToDelete = versions.filter(v => {
-            const versionTimestamp = new Date(v.timestamp);
-            return versionTimestamp > targetTimestamp;
-        });
-
-        if (useLocalStorage) {
-            // LocalStorage fallback - just filter out the versions
-            const remainingVersions = versions.filter(v => {
-                const versionTimestamp = new Date(v.timestamp);
-                return versionTimestamp <= targetTimestamp;
-            });
-            setVersions(remainingVersions);
-        } else {
-            // Delete versions from backend
-            try {
-                for (const version of versionsToDelete) {
-                    await versionAPI.delete(version.versionId || version.id);
-                }
-            } catch (error) {
-                console.error('Error deleting versions:', error);
-            }
-
-            // Reload versions from backend
-            const versionsRes = await versionAPI.getAll();
-            const transformedVersions = versionsRes.data.map(v => ({
-                ...v,
-                id: v.versionId
-            }));
-            setVersions(transformedVersions);
-        }
-
-        // Update current branch to point to target version
-        const targetId = targetVersion.versionId || targetVersion.id;
-
-        if (useLocalStorage) {
-            setBranches(prev => ({
-                ...prev,
-                [currentBranch]: targetId
-            }));
-        } else {
-            try {
-                await branchAPI.update(currentBranch, targetId);
-            } catch (error) {
-                console.error('Error updating branch:', error);
-            }
-        }
-
-        // Set current version and data
-        setCurrentVersion(targetVersion);
-        setCurrentData(JSON.parse(JSON.stringify(targetVersion.data)));
-    }, [versions, useLocalStorage, currentBranch]);
 
     /**
      * Merge two branches
@@ -392,8 +215,8 @@ export function useVersionControl() {
             throw new Error('One or both branches do not have any commits');
         }
 
-        const sourceVersion = versionsMap.get(sourceVersionId);
-        const targetVersion = versionsMap.get(targetVersionId);
+        const sourceVersion = versions.find(v => v.id === sourceVersionId);
+        const targetVersion = versions.find(v => v.id === targetVersionId);
 
         if (!sourceVersion || !targetVersion) {
             throw new Error('Could not find versions for branches');
@@ -403,6 +226,7 @@ export function useVersionControl() {
         const commonAncestor = findCommonAncestor(sourceVersion, targetVersion, versions);
 
         if (!commonAncestor) {
+            // No common ancestor - treat as if merging from empty
             const emptyVersion = { data: {} };
             const result = mergeVersions(emptyVersion, sourceVersion, targetVersion);
             return {
@@ -420,56 +244,42 @@ export function useVersionControl() {
             sourceVersion,
             targetVersion,
             commonAncestor,
+            // If conflict, we might need a way to present it. 
+            // Since we moved to generic text, mergeVersions in util might need updates or 
+            // if we wrap text in an object, it "might" just work for basic cases, 
+            // but text merging usually needs diff3. 
+            // For now, we rely on existing merge logic which is object-key based.
+            // If data is { content: "text" }, it will likely conflict if both changed.
         };
     }, [branches, versions]);
 
     /**
      * Complete a merge (after conflict resolution if needed)
      */
-    const completeMerge = useCallback(async (mergedData, sourceBranchName, sourceVersionId, message) => {
-        try {
-            const parentId = currentVersion?.versionId || currentVersion?.id || null;
+    const completeMerge = useCallback((mergedData, sourceBranchName, sourceVersionId, message) => {
+        const parentId = currentVersion?.id || null;
 
-            // Create merge version via API
-            const response = await versionAPI.create({
-                parentId,
-                data: mergedData,
-                message: message || `Merge ${sourceBranchName} into ${currentBranch}`,
-                author: 'User'
-            });
+        const mergeVersion = createVersion(
+            mergedData,
+            parentId,
+            message || `Merge ${sourceBranchName} into ${currentBranch}`,
+            'User',
+            sourceVersionId // mergeParentId
+        );
 
-            const mergeVersion = {
-                ...response.data,
-                id: response.data.versionId
-            };
+        setVersions(prev => [...prev, mergeVersion]);
+        setBranches(prev => ({
+            ...prev,
+            [currentBranch]: mergeVersion.id,
+        }));
+        setCurrentVersion(mergeVersion);
+        setCurrentData(JSON.parse(JSON.stringify(mergeVersion.data)));
 
-            setVersions(prev => [mergeVersion, ...prev]);
-
-            // Update branch pointer
-            if (currentBranch) {
-                try {
-                    await branchAPI.update(currentBranch, mergeVersion.versionId);
-                } catch (err) {
-                    console.error('Failed to update branch after merge:', err);
-                }
-            }
-
-            setBranches(prev => ({
-                ...prev,
-                [currentBranch]: mergeVersion.versionId,
-            }));
-            setCurrentVersion(mergeVersion);
-            setCurrentData(JSON.parse(JSON.stringify(mergeVersion.data)));
-
-            return mergeVersion;
-        } catch (err) {
-            setError(err.message);
-            throw err;
-        }
+        return mergeVersion;
     }, [currentVersion, currentBranch]);
 
     /**
-     * Update current data (does not save until commit)
+     * Update current data (does not save to localStorage)
      */
     const updateCurrentData = useCallback((newData) => {
         setCurrentData(newData);
@@ -498,11 +308,11 @@ export function useVersionControl() {
             return null;
         }
 
-        const version1 = versionsMap.get(selectedVersions[0]);
-        const version2 = versionsMap.get(selectedVersions[1]);
+        const version1 = versions.find(v => v.id === selectedVersions[0]);
+        const version2 = versions.find(v => v.id === selectedVersions[1]);
 
         if (!version1 || !version2) {
-            throw new Error('Matrix nodes inaccessible');
+            return null;
         }
 
         return {
@@ -513,7 +323,7 @@ export function useVersionControl() {
     }, [selectedVersions, versions]);
 
     /**
-     * Reset all data
+     * Reset all data (Specific to project)
      */
     const resetAll = useCallback(() => {
         setVersions([]);
@@ -522,59 +332,23 @@ export function useVersionControl() {
         setCurrentVersion(null);
         setCurrentData({});
         setSelectedVersions([]);
+        // We probably don't want to wipe the project itself here, just its data history
     }, []);
 
     /**
-     * Initialize with sample data
+     * Initialize with data
      */
-    const initWithData = useCallback(async (data, message = 'Initial commit') => {
-        try {
-            // Create initial version via API
-            const response = await versionAPI.create({
-                parentId: null,
-                data,
-                message,
-                author: 'User'
-            });
+    const initWithData = useCallback((data, message = 'Initial commit') => {
+        const newVersion = createVersion(data, null, message, 'User');
 
-            const newVersion = {
-                ...response.data,
-                id: response.data.versionId
-            };
+        setVersions([newVersion]);
+        setBranches({ main: newVersion.id });
+        setCurrentBranch('main');
+        setCurrentVersion(newVersion);
+        setCurrentData(JSON.parse(JSON.stringify(data)));
+        setSelectedVersions([]);
 
-            // Create main branch
-            try {
-                await branchAPI.create({ name: 'main', versionId: newVersion.versionId });
-                await branchAPI.setActive('main');
-            } catch (err) {
-                // Branch might already exist, try to update
-                try {
-                    await branchAPI.update('main', newVersion.versionId);
-                } catch (updateErr) {
-                    console.error('Failed to setup main branch:', updateErr);
-                }
-            }
-
-            setVersions([newVersion]);
-            setBranches({ main: newVersion.versionId });
-            setCurrentBranch('main');
-            setCurrentVersion(newVersion);
-            setCurrentData(JSON.parse(JSON.stringify(data)));
-            setSelectedVersions([]);
-
-            return newVersion;
-        } catch (err) {
-            setError(err.message);
-            // Fallback to local creation
-            const newVersion = createVersionLocal(data, null, message, 'User');
-            setVersions([newVersion]);
-            setBranches({ main: newVersion.id });
-            setCurrentBranch('main');
-            setCurrentVersion(newVersion);
-            setCurrentData(JSON.parse(JSON.stringify(data)));
-            setSelectedVersions([]);
-            return newVersion;
-        }
+        return newVersion;
     }, []);
 
     // Computed values
@@ -589,8 +363,8 @@ export function useVersionControl() {
     }, [branches]);
 
     const selectedVersionObjects = useMemo(() => {
-        return selectedVersions.map(id => versionsMap.get(id)).filter(Boolean);
-    }, [selectedVersions, versionsMap]);
+        return selectedVersions.map(id => versions.find(v => v.id === id)).filter(Boolean);
+    }, [selectedVersions, versions]);
 
     return {
         // State
@@ -601,8 +375,6 @@ export function useVersionControl() {
         currentData,
         selectedVersions,
         isLoading,
-        error,
-        useLocalStorage,
 
         // Actions
         commitVersion,
@@ -610,7 +382,6 @@ export function useVersionControl() {
         switchBranch,
         deleteBranch,
         rollbackToVersion,
-        hardRollback,
         mergeBranches,
         completeMerge,
         updateCurrentData,
@@ -618,7 +389,6 @@ export function useVersionControl() {
         getDiffBetweenSelected,
         resetAll,
         initWithData,
-        loadAllData,
 
         // Computed
         canCommit,
