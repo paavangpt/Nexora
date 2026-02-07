@@ -303,6 +303,72 @@ export function useVersionControl() {
     }, [versions]);
 
     /**
+     * Hard rollback - deletes all versions after the target version
+     * and updates current branch to point to the target version
+     */
+    const hardRollback = useCallback(async (targetVersionId) => {
+        const targetVersion = versions.find(v => v.versionId === targetVersionId || v.id === targetVersionId);
+
+        if (!targetVersion) {
+            throw new Error('Target version not found');
+        }
+
+        const targetTimestamp = new Date(targetVersion.timestamp);
+
+        // Find all versions created AFTER the target version
+        const versionsToDelete = versions.filter(v => {
+            const versionTimestamp = new Date(v.timestamp);
+            return versionTimestamp > targetTimestamp;
+        });
+
+        if (useLocalStorage) {
+            // LocalStorage fallback - just filter out the versions
+            const remainingVersions = versions.filter(v => {
+                const versionTimestamp = new Date(v.timestamp);
+                return versionTimestamp <= targetTimestamp;
+            });
+            setVersions(remainingVersions);
+        } else {
+            // Delete versions from backend
+            try {
+                for (const version of versionsToDelete) {
+                    await versionAPI.delete(version.versionId || version.id);
+                }
+            } catch (error) {
+                console.error('Error deleting versions:', error);
+            }
+
+            // Reload versions from backend
+            const versionsRes = await versionAPI.getAll();
+            const transformedVersions = versionsRes.data.map(v => ({
+                ...v,
+                id: v.versionId
+            }));
+            setVersions(transformedVersions);
+        }
+
+        // Update current branch to point to target version
+        const targetId = targetVersion.versionId || targetVersion.id;
+
+        if (useLocalStorage) {
+            setBranches(prev => ({
+                ...prev,
+                [currentBranch]: targetId
+            }));
+        } else {
+            try {
+                await branchAPI.update(currentBranch, targetId);
+            } catch (error) {
+                console.error('Error updating branch:', error);
+            }
+        }
+
+        // Set current version and data
+        setCurrentVersion(targetVersion);
+        setCurrentData(JSON.parse(JSON.stringify(targetVersion.data)));
+    }, [versions, useLocalStorage, currentBranch]);
+
+    /**
      * Merge two branches
      */
     const mergeBranches = useCallback((sourceBranchName, targetBranchName) => {
@@ -533,6 +599,7 @@ export function useVersionControl() {
         switchBranch,
         deleteBranch,
         rollbackToVersion,
+        hardRollback,
         mergeBranches,
         completeMerge,
         updateCurrentData,

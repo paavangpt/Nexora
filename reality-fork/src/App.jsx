@@ -14,6 +14,8 @@ import {
   FaCode,
   FaBars,
   FaChevronLeft,
+  FaUndo,
+  FaExclamationTriangle,
 } from 'react-icons/fa';
 
 import { useVersionControl } from './hooks/useVersionControl';
@@ -42,6 +44,7 @@ function App() {
     switchBranch,
     deleteBranch,
     rollbackToVersion,
+    hardRollback,
     mergeBranches,
     completeMerge,
     updateCurrentData,
@@ -65,6 +68,9 @@ function App() {
   const [commitMessage, setCommitMessage] = useState('');
   const [notification, setNotification] = useState(null);
   const [branchFromVersion, setBranchFromVersion] = useState(null);
+  const [showRollbackModal, setShowRollbackModal] = useState(false);
+  const [rollbackTargetVersion, setRollbackTargetVersion] = useState(null);
+  const [rollbackBranchName, setRollbackBranchName] = useState('');
 
   // Mobile responsive state
   const [mobileView, setMobileView] = useState('editor'); // 'history' | 'editor' | 'branches'
@@ -163,17 +169,52 @@ function App() {
     setShowBranchModal(true);
   }, []);
 
-  // Handle rollback
+  // Handle rollback - show modal with options
   const handleRollback = useCallback((versionId) => {
-    if (canCommit) {
-      if (!confirm('You have uncommitted changes. Rollback will discard them. Continue?')) {
-        return;
-      }
+    const version = versions.find(v => v.id === versionId);
+    if (version) {
+      setRollbackTargetVersion(version);
+      setRollbackBranchName(`rollback-${version.id.substring(0, 8)}`);
+      setShowRollbackModal(true);
+    }
+  }, [versions]);
+
+  // Soft rollback - creates a new branch from the version
+  const handleSoftRollback = useCallback(async () => {
+    if (!rollbackTargetVersion || !rollbackBranchName.trim()) {
+      showNotification('Please enter a branch name', 'error');
+      return;
     }
 
-    rollbackToVersion(versionId);
-    showNotification('Rolled back to previous version. Commit to save.', 'info');
-  }, [canCommit, rollbackToVersion, showNotification]);
+    try {
+      // Create new branch from the rollback target version
+      createBranch(rollbackBranchName.trim(), rollbackTargetVersion.id);
+      // Switch to the new branch
+      switchBranch(rollbackBranchName.trim());
+      setShowRollbackModal(false);
+      setRollbackTargetVersion(null);
+      showNotification(`Created branch "${rollbackBranchName}" from version. Now on new branch.`, 'success');
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
+  }, [rollbackTargetVersion, rollbackBranchName, createBranch, switchBranch, showNotification]);
+
+  // Hard rollback - deletes all versions after the target and resets to that version
+  const handleHardRollback = useCallback(async () => {
+    if (!rollbackTargetVersion) return;
+
+    const confirmMsg = 'HARD ROLLBACK will permanently delete all versions after this point. This cannot be undone. Are you absolutely sure?';
+    if (!confirm(confirmMsg)) return;
+
+    try {
+      await hardRollback(rollbackTargetVersion.id);
+      setShowRollbackModal(false);
+      setRollbackTargetVersion(null);
+      showNotification('Hard rollback complete. All versions after this point have been deleted.', 'success');
+    } catch (error) {
+      showNotification(error.message, 'error');
+    }
+  }, [rollbackTargetVersion, hardRollback, showNotification]);
 
   // Handle merge
   const handleMerge = useCallback((sourceBranch, targetBranch) => {
@@ -678,6 +719,82 @@ function App() {
                 Start with Empty State
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rollback Modal */}
+      {showRollbackModal && rollbackTargetVersion && (
+        <div className="modal-overlay animate-fadeIn" onClick={() => setShowRollbackModal(false)}>
+          <div
+            className="glass-panel w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
+                <FaUndo className="text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-gray-100">Rollback Options</h2>
+                <p className="text-xs text-gray-400">Choose how to rollback to this version</p>
+              </div>
+            </div>
+
+            <div className="bg-gray-800/60 rounded-lg p-4 mb-4">
+              <p className="text-sm text-gray-300 mb-1">Target Version:</p>
+              <p className="font-medium text-gray-100">{rollbackTargetVersion.message}</p>
+              <p className="text-xs text-gray-500 mt-1">#{rollbackTargetVersion.id.substring(0, 8)}</p>
+            </div>
+
+            <div className="space-y-4">
+              {/* Soft Rollback */}
+              <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <FaCodeBranch className="text-green-400" />
+                  <h3 className="font-medium text-green-400">Soft Rollback</h3>
+                </div>
+                <p className="text-sm text-gray-400 mb-3">
+                  Creates a new branch from this version. All existing versions and branches remain intact.
+                </p>
+                <input
+                  type="text"
+                  value={rollbackBranchName}
+                  onChange={(e) => setRollbackBranchName(e.target.value)}
+                  placeholder="New branch name..."
+                  className="input mb-3 text-sm"
+                />
+                <button
+                  onClick={handleSoftRollback}
+                  className="btn btn-success w-full"
+                >
+                  <FaCodeBranch /> Create Branch & Switch
+                </button>
+              </div>
+
+              {/* Hard Rollback */}
+              <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/5">
+                <div className="flex items-center gap-2 mb-2">
+                  <FaExclamationTriangle className="text-red-400" />
+                  <h3 className="font-medium text-red-400">Hard Rollback</h3>
+                </div>
+                <p className="text-sm text-gray-400 mb-3">
+                  <strong className="text-red-300">DESTRUCTIVE:</strong> Permanently deletes all versions after this point. This cannot be undone.
+                </p>
+                <button
+                  onClick={handleHardRollback}
+                  className="btn btn-danger w-full"
+                >
+                  <FaTrash /> Delete Future Versions
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowRollbackModal(false)}
+              className="btn btn-secondary w-full mt-4"
+            >
+              <FaTimes /> Cancel
+            </button>
           </div>
         </div>
       )}
