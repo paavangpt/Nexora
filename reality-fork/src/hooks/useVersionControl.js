@@ -62,6 +62,10 @@ export function useVersionControl() {
             // Get active branch (don't log error if none exists, just use 'main')
             try {
                 const activeRes = await branchAPI.getActive();
+                if (!activeRes.data) {
+                    throw new Error('No active branch');
+                }
+
                 setCurrentBranch(activeRes.data.name);
                 if (activeRes.data.version) {
                     const transformedVersion = {
