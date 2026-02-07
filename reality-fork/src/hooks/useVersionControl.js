@@ -59,7 +59,7 @@ export function useVersionControl() {
             }
             setBranches(branchesObj);
 
-            // Get active branch
+            // Get active branch (don't log error if none exists, just use 'main')
             try {
                 const activeRes = await branchAPI.getActive();
                 setCurrentBranch(activeRes.data.name);
@@ -71,8 +71,9 @@ export function useVersionControl() {
                     setCurrentVersion(transformedVersion);
                     setCurrentData(activeRes.data.version?.data || {});
                 }
-            } catch (err) {
-                // No active branch, use main
+            } catch {
+                // No active branch found - this is expected for new databases
+                // Silently fallback to 'main' branch
                 setCurrentBranch('main');
                 // Set current version to latest if available
                 if (transformedVersions.length > 0 && branchesObj.main) {

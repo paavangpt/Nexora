@@ -1,7 +1,7 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 // Helper function for API calls
-const apiCall = async (endpoint, options = {}) => {
+const apiCall = async (endpoint, options = {}, suppressErrors = false) => {
     const url = `${API_BASE_URL}${endpoint}`;
 
     const config = {
@@ -22,7 +22,9 @@ const apiCall = async (endpoint, options = {}) => {
 
         return data;
     } catch (error) {
-        console.error('API Error:', error);
+        if (!suppressErrors) {
+            console.error('API Error:', error);
+        }
         throw error;
     }
 };
@@ -85,8 +87,8 @@ export const branchAPI = {
         method: 'DELETE'
     }),
 
-    // Get active branch
-    getActive: () => apiCall('/branches/active'),
+    // Get active branch (suppress errors - 404 is expected for new databases)
+    getActive: () => apiCall('/branches/active', {}, true),
 
     // Set active branch
     setActive: (name) => apiCall(`/branches/${name}/activate`, {
