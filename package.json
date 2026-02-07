@@ -15,7 +15,7 @@
         "docker:up": "cd reality-fork-backend && docker compose up -d",
         "docker:down": "cd reality-fork-backend && docker compose down",
         "setup:server": "npm run install:all && npm run build",
-        "vercel-build": "cd reality-fork && npm install && npm run build && npm run postbuild",
+        "vercel-build": "npm run install:all && npm run build",
         "setup": "npm run setup:server",
         "clean": "rm -rf node_modules reality-fork/node_modules reality-fork-backend/node_modules"
     },
