@@ -11,6 +11,7 @@ import {
 /**
  * Custom hook for managing version control state and operations
  * Uses backend API for persistent storage with localStorage fallback
+ * Optimized for performance using O(1) Map lookups and memoized derived state.
  */
 export function useVersionControl() {
     // Core state
@@ -24,12 +25,19 @@ export function useVersionControl() {
     const [error, setError] = useState(null);
     const [useLocalStorage, setUseLocalStorage] = useState(false);
 
+    // Optimized O(1) lookup map (js-index-maps)
+    const versionsMap = useMemo(() => {
+        const map = new Map();
+        versions.forEach(v => map.set(v.versionId || v.id, v));
+        return map;
+    }, [versions]);
+
     // Load initial data from backend
     useEffect(() => {
         loadAllData();
     }, []);
 
-    const loadAllData = async () => {
+    const loadAllData = useCallback(async () => {
         setIsLoading(true);
         setError(null);
 
@@ -81,7 +89,7 @@ export function useVersionControl() {
                 setCurrentBranch('main');
                 // Set current version to latest if available
                 if (transformedVersions.length > 0 && branchesObj.main) {
-                    const mainVersion = transformedVersions.find(v => v.versionId === branchesObj.main);
+                    const mainVersion = transformedVersions.find(v => (v.versionId || v.id) === branchesObj.main);
                     if (mainVersion) {
                         setCurrentVersion(mainVersion);
                         setCurrentData(mainVersion.data || {});
@@ -99,7 +107,7 @@ export function useVersionControl() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     const loadFromLocalStorage = () => {
         // Import storage utilities dynamically for fallback
@@ -201,7 +209,7 @@ export function useVersionControl() {
             throw new Error('No version to branch from');
         }
 
-        const version = versions.find(v => v.versionId === versionId || v.id === versionId);
+        const version = versionsMap.get(versionId);
         if (!version) {
             throw new Error('Source version not found');
         }
@@ -255,7 +263,7 @@ export function useVersionControl() {
         } catch (err) {
             // Fallback to local state
             const versionId = branches[branchName];
-            const version = versions.find(v => v.versionId === versionId || v.id === versionId);
+            const version = versionsMap.get(versionId);
 
             setCurrentBranch(branchName);
             setCurrentVersion(version || null);
@@ -298,7 +306,7 @@ export function useVersionControl() {
      * Rollback to a specific version
      */
     const rollbackToVersion = useCallback(async (versionId) => {
-        const version = versions.find(v => v.versionId === versionId || v.id === versionId);
+        const version = versionsMap.get(versionId);
 
         if (!version) {
             throw new Error('Version not found');
@@ -312,7 +320,7 @@ export function useVersionControl() {
      * and updates current branch to point to the target version
      */
     const hardRollback = useCallback(async (targetVersionId) => {
-        const targetVersion = versions.find(v => v.versionId === targetVersionId || v.id === targetVersionId);
+        const targetVersion = versionsMap.get(targetVersionId);
 
         if (!targetVersion) {
             throw new Error('Target version not found');
@@ -384,8 +392,8 @@ export function useVersionControl() {
             throw new Error('One or both branches do not have any commits');
         }
 
-        const sourceVersion = versions.find(v => v.versionId === sourceVersionId || v.id === sourceVersionId);
-        const targetVersion = versions.find(v => v.versionId === targetVersionId || v.id === targetVersionId);
+        const sourceVersion = versionsMap.get(sourceVersionId);
+        const targetVersion = versionsMap.get(targetVersionId);
 
         if (!sourceVersion || !targetVersion) {
             throw new Error('Could not find versions for branches');
@@ -490,11 +498,11 @@ export function useVersionControl() {
             return null;
         }
 
-        const version1 = versions.find(v => v.versionId === selectedVersions[0] || v.id === selectedVersions[0]);
-        const version2 = versions.find(v => v.versionId === selectedVersions[1] || v.id === selectedVersions[1]);
+        const version1 = versionsMap.get(selectedVersions[0]);
+        const version2 = versionsMap.get(selectedVersions[1]);
 
         if (!version1 || !version2) {
-            return null;
+            throw new Error('Matrix nodes inaccessible');
         }
 
         return {
@@ -581,10 +589,8 @@ export function useVersionControl() {
     }, [branches]);
 
     const selectedVersionObjects = useMemo(() => {
-        return selectedVersions.map(id =>
-            versions.find(v => v.versionId === id || v.id === id)
-        ).filter(Boolean);
-    }, [selectedVersions, versions]);
+        return selectedVersions.map(id => versionsMap.get(id)).filter(Boolean);
+    }, [selectedVersions, versionsMap]);
 
     return {
         // State

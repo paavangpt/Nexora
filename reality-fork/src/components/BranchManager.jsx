@@ -70,9 +70,9 @@ export default function BranchManager({
     };
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col rounded-xl overflow-hidden">
             {/* Header */}
-            <div className="px-8 py-12 border-b border-white/5 bg-white/[0.02] m-8">
+            <div className="px-8 py-12 border-b border-white/5 bg-black/40">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-xl border border-indigo-500/20 shadow-[0_0_15px_rgba(129,140,248,0.1)]">
                         <FaCodeBranch />
@@ -116,8 +116,8 @@ export default function BranchManager({
                                 type="text"
                                 value={newBranchName}
                                 onChange={(e) => setNewBranchName(e.target.value)}
-                                placeholder="Branch identifier..."
-                                className="input h-12 font-mono"
+                                placeholder="Branch identifier…"
+                                className="input h-12 font-mono focus-visible:ring-1 focus-visible:ring-indigo-500/30"
                             />
                             <div className="flex gap-2">
                                 <button onClick={handleCreateBranch} className="btn btn-primary bg-indigo-500 flex-1 h-11 uppercase text-[10px] tracking-widest">Confirm</button>
@@ -132,9 +132,9 @@ export default function BranchManager({
                                 <select
                                     value={sourceBranch}
                                     onChange={(e) => setSourceBranch(e.target.value)}
-                                    className="input h-11 text-xs"
+                                    className="input h-11 text-xs focus-visible:ring-1 focus-visible:ring-indigo-500/30"
                                 >
-                                    <option value="">Source...</option>
+                                    <option value="">Source…</option>
                                     {branchList.filter(b => b !== currentBranch).map(b => (
                                         <option key={b} value={b}>{b}</option>
                                     ))}
@@ -188,7 +188,7 @@ export default function BranchManager({
                                     <p className="text-[11px] font-medium text-slate-400 line-clamp-1 italic">"{info.version.message}"</p>
                                     <div className="flex items-center gap-2 opacity-60">
                                         <FaClock className="text-[10px] text-indigo-400" />
-                                        <span className="text-[9px] font-bold uppercase tracking-widest">{format(new Date(info.version.timestamp), 'MMM d, HH:mm')}</span>
+                                        <span className="text-[9px] font-bold uppercase tracking-widest tabular-nums">{format(new Date(info.version.timestamp), 'MMM d, HH:mm')}</span>
                                     </div>
                                 </div>
                             ) : (
@@ -199,14 +199,16 @@ export default function BranchManager({
                                 <div className="flex gap-6 mt-6">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onSwitchBranch(branchName); }}
-                                        className="h-9 flex-1 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
+                                        className="h-9 flex-1 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all focus-visible:ring-1 focus-visible:ring-indigo-500/30"
+                                        aria-label={`Switch active sequence to ${branchName}`}
                                     >
                                         Inhabit
                                     </button>
                                     {branchName !== 'main' && (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); if (confirm(`Purge branch "${branchName}"?`)) onDeleteBranch(branchName); }}
-                                            className="h-9 w-10 flex items-center justify-center bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 hover:border-rose-500/20 rounded-lg text-rose-500/60 hover:text-rose-500 transition-all"
+                                            className="h-9 w-10 flex items-center justify-center bg-rose-500/5 hover:bg-rose-500/10 border border-rose-500/10 hover:border-rose-500/20 rounded-lg text-rose-500/60 hover:text-rose-500 transition-all focus-visible:ring-1 focus-visible:ring-rose-500/30"
+                                            aria-label={`Purge branch ${branchName}`}
                                         >
                                             <FaTrash className="text-xs" />
                                         </button>

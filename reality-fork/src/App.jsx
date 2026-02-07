@@ -69,6 +69,49 @@ function App() {
   // Mobile responsive state
   const [mobileView, setMobileView] = useState('editor'); // 'history' | 'editor' | 'branches'
   const [newBranchName, setNewBranchName] = useState('');
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Hydration Gate
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
+
+  // Sync state with URL
+  useEffect(() => {
+    if (!isHydrated || isLoading) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const branch = params.get('branch');
+    const selected = params.get('selected');
+
+    if (branch && branch !== currentBranch && branches[branch]) {
+      switchBranch(branch);
+    }
+
+    if (selected) {
+      const ids = selected.split(',');
+      ids.forEach(id => {
+        if (!selectedVersions.includes(id)) {
+          toggleVersionSelection(id);
+        }
+      });
+    }
+  }, [isHydrated, isLoading]);
+
+  useEffect(() => {
+    if (!isHydrated || isLoading) return;
+
+    const params = new URLSearchParams(window.location.search);
+    params.set('branch', currentBranch);
+    if (selectedVersions.length > 0) {
+      params.set('selected', selectedVersions.join(','));
+    } else {
+      params.delete('selected');
+    }
+
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', newUrl);
+  }, [currentBranch, selectedVersions, isHydrated, isLoading]);
 
   // Check screen size for responsive behavior
   useEffect(() => {
@@ -267,7 +310,7 @@ function App() {
     return v1 && v2 ? { version1: v1, version2: v2, diff: getDiff(v1, v2) } : null;
   })() : null;
 
-  if (isLoading) {
+  if (isLoading || !isHydrated) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#03050a]">
         <div className="text-center animate-fadeIn">
@@ -276,7 +319,7 @@ function App() {
             <div className="absolute inset-2 rounded-full border-2 border-purple-500/20 border-b-purple-500 animate-spin-slow" />
             <FaRocket className="absolute inset-0 m-auto text-3xl text-cyan-400" />
           </div>
-          <p className="font-display font-semibold text-lg tracking-widest text-cyan-500 uppercase">Synchronizing Reality</p>
+          <p className="font-display font-semibold text-lg tracking-widest text-cyan-500 uppercase">Synchronizing Reality…</p>
           <div className="mt-4 flex justify-center gap-1">
             {[0, 1, 2].map(i => (
               <div key={i} className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
@@ -380,7 +423,7 @@ function App() {
       {/* Main Grid */}
       <main className="flex-1 main-grid overflow-hidden bg-white/[0.01]">
         {/* Left: History */}
-        <aside className={`${mobileView === 'history' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel overflow-hidden border-0 lg:border-r`}>
+        <aside className={`${mobileView === 'history' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel p-2 overflow-hidden border-0 lg:border-r`}>
           <VersionHistory
             versions={versions}
             currentVersion={currentVersion}
@@ -394,7 +437,7 @@ function App() {
         </aside>
 
         {/* Center: Editor */}
-        <section className={`${mobileView === 'editor' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel animate-fadeIn overflow-hidden border-0`} style={{ animationDelay: '0.1s' }}>
+        <section className={`${mobileView === 'editor' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel p-2 animate-fadeIn overflow-hidden border-0`} style={{ animationDelay: '0.1s' }}>
           <Editor
             data={currentData}
             onChange={updateCurrentData}
@@ -405,7 +448,7 @@ function App() {
         </section>
 
         {/* Right: Branches */}
-        <aside className={`${mobileView === 'branches' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel overflow-hidden border-0 lg:border-l`}>
+        <aside className={`${mobileView === 'branches' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel p-2 overflow-hidden border-0 lg:border-l`}>
           <BranchManager
             branches={branches}
             currentBranch={currentBranch}
@@ -453,7 +496,7 @@ function App() {
             <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
-              placeholder="Designate snapshot identifier..."
+              placeholder="Designate snapshot identifier…"
               className="input min-h-[140px] resize-none mb-6 font-medium text-lg placeholder:opacity-30"
               autoFocus
             />
@@ -483,7 +526,7 @@ function App() {
             <input
               type="text"
               value={newBranchName}
-              placeholder="Fork identifier..."
+              placeholder="Fork identifier…"
               onChange={(e) => setNewBranchName(e.target.value)}
               className="input mb-8 font-mono"
               autoFocus

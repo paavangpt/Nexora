@@ -72,9 +72,9 @@ export default function VersionHistory({
     }
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col rounded-xl overflow-hidden">
             {/* Header */}
-            <div className="px-6 py-8 border-b border-white/5 bg-white/[0.02]">
+            <div className="px-8 py-10 border-b border-white/5 bg-white/[0.04]">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 text-xl border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
                         <FaHistory />
@@ -107,8 +107,12 @@ export default function VersionHistory({
                             return (
                                 <div
                                     key={version.id}
-                                    className={`relative pl-10 animate-fadeIn group`}
-                                    style={{ animationDelay: `${index * 80}ms` }}
+                                    className="relative pl-10 animate-fadeIn group"
+                                    style={{
+                                        animationDelay: `${index * 80}ms`,
+                                        contentVisibility: 'auto',
+                                        containIntrinsicSize: '0 160px'
+                                    }}
                                 >
                                     {/* Timeline dot */}
                                     <div className={`
@@ -137,7 +141,7 @@ export default function VersionHistory({
                                         {/* Badge/Status */}
                                         <div className="flex items-center justify-between mb-6">
                                             <div className="flex items-center gap-2">
-                                                <span className="font-mono text-[9px] font-bold text-muted tracking-tighter uppercase px-2 py-0.5 rounded-md bg-white/5 border border-white/5 group-hover:border-white/10 transition-colors">
+                                                <span className="font-mono text-[9px] font-bold text-muted tracking-tighter uppercase px-2 py-0.5 rounded-md bg-white/5 border border-white/5 group-hover:border-white/10 transition-colors tabular-nums">
                                                     ID: {version.id.substring(0, 10)}
                                                 </span>
                                                 {isMerge && <span className="text-[9px] font-black uppercase text-purple-400 tracking-widest px-1">Merge</span>}
@@ -163,7 +167,7 @@ export default function VersionHistory({
                                                 <FaUser className="text-[10px] text-cyan-500" />
                                                 <span className="text-[10px] font-bold uppercase tracking-wider">{version.author.split(' ')[0]}</span>
                                             </div>
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1.5 tabular-nums">
                                                 <FaClock className="text-[10px] text-indigo-500" />
                                                 <span className="text-[10px] font-bold uppercase tracking-wider">{format(new Date(version.timestamp), 'HH:mm')}</span>
                                             </div>
@@ -187,16 +191,18 @@ export default function VersionHistory({
                                         <div className="flex gap-3">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onRollback(version.id); }}
-                                                className={`flex-1 h-9 flex items-center justify-center gap-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                                                className={`flex-1 h-9 flex items-center justify-center gap-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all focus-visible:ring-1 focus-visible:ring-white/30
                                                     ${isCurrent ? 'bg-white/5 text-slate-600 cursor-not-allowed border border-white/5' : 'bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20'}
                                                 `}
                                                 disabled={isCurrent}
+                                                aria-label={`Shift reality to version ${version.id.substring(0, 8)}`}
                                             >
                                                 <FaUndo className="opacity-60" /> Shift
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onBranchFromVersion(version.id); }}
-                                                className="flex-1 h-9 flex items-center justify-center gap-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 hover:border-indigo-400/30 text-[10px] font-black uppercase tracking-widest transition-all"
+                                                className="flex-1 h-9 flex items-center justify-center gap-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 hover:border-indigo-400/30 text-[10px] font-black uppercase tracking-widest transition-all focus-visible:ring-1 focus-visible:ring-indigo-500/30"
+                                                aria-label={`Fork new timeline from version ${version.id.substring(0, 8)}`}
                                             >
                                                 <FaCodeBranch className="opacity-60" /> Fork
                                             </button>
