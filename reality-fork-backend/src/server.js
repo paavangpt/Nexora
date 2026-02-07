@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const path = require('path');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -12,8 +13,11 @@ app.use(cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Request logging in development
 if (process.env.NODE_ENV === 'development') {
@@ -38,6 +42,7 @@ app.get('/health', (req, res) => {
 // API Routes
 app.use('/api/versions', require('./routes/versions'));
 app.use('/api/branches', require('./routes/branches'));
+app.use('/api/files', require('./routes/files'));
 
 // 404 handler
 app.use((req, res) => {

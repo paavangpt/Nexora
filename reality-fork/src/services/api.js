@@ -93,3 +93,53 @@ export const branchAPI = {
         method: 'PUT'
     })
 };
+
+// File API calls
+const FILE_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api', '') || 'http://localhost:5000';
+
+export const fileAPI = {
+    // Upload single file
+    upload: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch(`${API_BASE_URL}/files/upload`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Upload failed');
+        }
+        return data;
+    },
+
+    // Upload multiple files
+    uploadMultiple: async (files) => {
+        const formData = new FormData();
+        files.forEach(file => formData.append('files', file));
+
+        const response = await fetch(`${API_BASE_URL}/files/upload-multiple`, {
+            method: 'POST',
+            body: formData
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.message || 'Upload failed');
+        }
+        return data;
+    },
+
+    // Get all uploaded files
+    getAll: () => apiCall('/files'),
+
+    // Delete file
+    delete: (filename) => apiCall(`/files/${filename}`, {
+        method: 'DELETE'
+    }),
+
+    // Get file URL
+    getUrl: (path) => `${FILE_BASE_URL}${path}`
+};
