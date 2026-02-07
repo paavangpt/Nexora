@@ -1,192 +1,212 @@
-import { useState, useEffect, useCallback } from 'react';
-import { FaCode, FaAlignLeft, FaPlus, FaRocket, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
+import { useState, useEffect, useRef, useTransition } from 'react';
+import {
+    FaCode,
+    FaTerminal,
+    FaHistory,
+    FaRocket,
+    FaArrowUp,
+    FaPlus,
+    FaMagic,
+    FaEraser,
+    FaMicrochip,
+} from 'react-icons/fa';
 
 /**
- * JSON Editor component with syntax validation and formatting
+ * JSON Editor component with high-tech terminal aesthetics
  */
-export default function Editor({ data, onChange, readOnly = false }) {
-    const [textValue, setTextValue] = useState('');
-    // const [error, setError] = useState(null); // No validation errors for generic text
-    // const [isValid, setIsValid] = useState(true); // Always valid
-    const [lineCount, setLineCount] = useState(1);
-    const [charCount, setCharCount] = useState(0);
+export default function Editor({ data, onChange, onCommit, canCommit, currentBranch, readOnly = false }) {
+    const [content, setContent] = useState('');
+    const [error, setError] = useState(null);
+    const [isValid, setIsValid] = useState(true);
+    const [stats, setStats] = useState({ rows: 0, bytes: 0 });
+    const [isPending, startTransition] = useTransition();
+    const textareaRef = useRef(null);
 
-    // Sync text value with data prop
+    // Sync with external data changes
     useEffect(() => {
-        try {
-            // Check if data is an object (from JSON legacy) or string
-            let content = '';
-            if (typeof data === 'string') {
-                content = data;
-            } else if (data && typeof data === 'object' && data.type === 'text' && typeof data.content === 'string') {
-                // New wrapper format
-                content = data.content;
-            } else if (data && typeof data === 'object') {
-                // Legacy support or if passing object (assume JSON)
-                content = JSON.stringify(data, null, 2);
-                if (content === '{}') content = ''; // Empty object -> empty string
+        startTransition(() => {
+            try {
+                const formatted = JSON.stringify(data, null, 2);
+                setContent(formatted);
+                setError(null);
+                setIsValid(true);
+                setStats({ rows: formatted.split('\n').length, bytes: formatted.length });
+            } catch (e) {
+                setContent('{}');
+                setError('Invalid data received');
+                setIsValid(false);
+                setStats({ rows: 1, bytes: 2 });
             }
-
-            setTextValue(content);
-            setLineCount(content.split('\n').length || 1);
-            setCharCount(content.length);
-        } catch (e) {
-            console.error('Error parsing data for editor', e);
-            setTextValue('');
-        }
+        });
     }, [data]);
 
-    const handleChange = useCallback((e) => {
+    const handleChange = (e) => {
         const value = e.target.value;
-        setTextValue(value);
-        setCharCount(value.length);
-        setLineCount(value.split('\n').length);
+        setContent(value);
+        setStats({ rows: value.split('\n').length, bytes: value.length });
 
-        // For generic text, we just pass the string value or a simple wrapper
-        // The App/UseVersionControl expects "data" to be the state.
-        // We can pass the raw string if we update everything else, 
-        // OR we can pass { content: value } if we want to keep "object" structure.
-        // BUT, given the requirement "anything", passing raw string is risky if 
-        // the top-level state MUST be an object for some other reason (diffing?).
-        // 'useVersionControl' treats 'currentData' as what it saves. 
-        // 'getDiff' expects objects currently. 
-        // let's wrap it to keep compatibility with existing object-diff logic for now, 
-        // OR we update 'useVersionControl' to handle strings. 
-        // Plan said: "treat it as a string... or wrap". 
-        // Let's WRAP it transparently here so the rest of the app sees an object, 
-        // but the user sees text.
-        // ACTUALLY, to make "JSON" still work nicely as a subset, we could try to parse, 
-        // but user wants "anything". 
-        // Let's just pass the raw value. I need to update getDiff to handle strings too.
-        // PROCEEDING WITH: Pass raw value (or object if valid JSON? No, consistency first).
-        // Let's standardise on passing the value directly. 
-        // Wait, 'data' prop coming in might be object from legacy. 
-        // Let's try to emit { content: value, type: 'text' } wrapper? 
-        // UseVersionControl's `createVersion` just JSON.stringifies. 
-        // `getDiff` keys off user data. 
-        // If I change data shape to just "string", `getDiff` (keys) fails.
-        // So I MUST Wrap.
-
-        onChange({ content: value, type: 'text' });
-
-    }, [onChange]);
-
-    // We need to unwrap in the effect above.
-    // Let's refine the Effect to handle the wrapper.
-
-    /*
-    useEffect(() => {
-        let content = '';
-        if (data && data.type === 'text' && typeof data.content === 'string') {
-             content = data.content;
-        } else if (Object.keys(data).length === 0) {
-             content = '';
-        } else {
-             // Legacy or imported JSON
-             content = JSON.stringify(data, null, 2);
+        // Validate JSON
+        try {
+            const parsed = JSON.parse(value);
+            setError(null);
+            setIsValid(true);
+            onChange(parsed);
+        } catch (e) {
+            setError(`${e.message}`);
+            setIsValid(false);
         }
-        ...
-    */
+    };
 
-    // handleFormat and handleAddField are removed as they are JSON-specific.
-
-    const handleKeyDown = useCallback((e) => {
-        if (e.key === 'Tab') {
-            e.preventDefault();
-            const { selectionStart, selectionEnd, value } = e.target;
-            const newValue = value.substring(0, selectionStart) + '  ' + value.substring(selectionEnd);
-
-            setTextValue(newValue);
-            setCharCount(newValue.length); // Update char count immediately
-
-            // Trigger change with wrapper
-            onChange({ content: newValue, type: 'text' });
-
-            // Restore cursor position
-            requestAnimationFrame(() => {
-                if (e.target) {
-                    e.target.selectionStart = selectionStart + 2;
-                    e.target.selectionEnd = selectionStart + 2;
-                }
+    const handleFormat = () => {
+        try {
+            const parsed = JSON.parse(content);
+            startTransition(() => {
+                const formatted = JSON.stringify(parsed, null, 2);
+                setContent(formatted);
+                setError(null);
+                setIsValid(true);
+                setStats({ rows: formatted.split('\n').length, bytes: formatted.length });
+                onChange(parsed);
             });
+        } catch (e) {
+            setError(`Format failure: ${e.message}`);
         }
-    }, [onChange]);
+    };
 
-    // Generate line numbers
-    const lineNumbers = Array.from({ length: Math.max(1, lineCount) }, (_, i) => i + 1);
+    const handleAddField = () => {
+        try {
+            const parsed = JSON.parse(content);
+            const newKey = `node_${Date.now().toString(36).slice(-4)}`;
+            parsed[newKey] = 'null';
+            startTransition(() => {
+                const formatted = JSON.stringify(parsed, null, 2);
+                setContent(formatted);
+                setError(null);
+                setIsValid(true);
+                setStats({ rows: formatted.split('\n').length, bytes: formatted.length });
+                onChange(parsed);
+            });
+        } catch (e) {
+            setError(`Append failure: ${e.message}`);
+        }
+    };
+
+    // Sync line numbers scrolling
+    const lineNumbersRef = useRef(null);
+    const handleScroll = (e) => {
+        if (lineNumbersRef.current) {
+            lineNumbersRef.current.scrollTop = e.target.scrollTop;
+        }
+    };
 
     return (
-        <div className="h-full flex flex-col">
-            {/* Toolbar */}
-            <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800/50">
-                <div className="flex items-center gap-2">
-                    <FaCode className="text-blue-400" />
-                    <span className="font-semibold text-gray-200">Reality Editor</span>
-                </div>
-                <div className="flex items-center gap-2">
-                    <div className="px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
-                        <span className="text-[10px] font-medium text-blue-300 uppercase tracking-wider">Text Mode</span>
+        <div className="h-full flex flex-col bg-deep selection:bg-cyan-500/30 rounded-xl overflow-hidden">
+            {/* Upper Context Bar */}
+            <div className="h-16 px-8 border-b border-white/5 flex items-center justify-between bg-black/40">
+                <div className="flex items-center gap-6">
+                    <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
+                        <FaTerminal className="text-sm" />
+                    </div>
+                    <div>
+                        <h2 className="font-display font-black text-white text-sm uppercase italic tracking-widest leading-none">Matrix_Terminal</h2>
+                        <span className="text-[9px] font-bold text-muted uppercase tracking-widest">Active Sync: {currentBranch}</span>
                     </div>
                 </div>
+
+                <div className="flex items-center gap-3">
+                    {!readOnly && (
+                        <>
+                            <button onClick={handleAddField} disabled={!isValid || isPending} className="h-8 px-4 flex items-center gap-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-all disabled:opacity-20 focus-visible:ring-1 focus-visible:ring-cyan-500/30">
+                                <FaPlus /> Node
+                            </button>
+                            <button onClick={handleFormat} disabled={!isValid || isPending} className="h-8 px-4 flex items-center gap-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-all disabled:opacity-20 focus-visible:ring-1 focus-visible:ring-cyan-500/30">
+                                <FaMagic /> Format
+                            </button>
+                            <div className="w-px h-4 bg-white/10 mx-1" />
+                            <button onClick={onCommit} disabled={!canCommit || isPending} className="h-8 px-4 flex items-center gap-2 rounded-lg bg-accent-success/10 hover:bg-accent-success/20 border border-accent-success/20 text-[10px] font-black uppercase text-accent-success transition-all disabled:opacity-20 focus-visible:ring-1 focus-visible:ring-green-500/30">
+                                <FaRocket /> Snapshot
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
 
-            {/* Status bar */}
-            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700 bg-gray-900/50 text-xs">
-                <div className="flex items-center gap-4">
-                    <span className="text-gray-400">
-                        Lines: <span className="text-blue-400">{lineCount}</span>
-                    </span>
-                    <span className="text-gray-400">
-                        Characters: <span className="text-blue-400">{charCount}</span>
-                    </span>
+            {/* Error Message */}
+            {error && (
+                <div className="px-6 py-2 bg-accent-danger/10 border-b border-accent-danger/20 text-accent-danger text-[10px] font-black uppercase tracking-widest animate-fadeIn flex items-center gap-3">
+                    <FaEraser />
+                    <span>Sequence Error: {error}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                    {/* Validation status removed */}
-                </div>
-            </div>
+            )}
 
-            {/* Error message */}
-            {/* Error message removed */}
-
-            {/* Editor area */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* Line numbers */}
-                <div className="w-12 bg-gray-900/80 border-r border-gray-700 overflow-hidden select-none">
-                    <div className="p-3 code-editor text-gray-500 text-right">
-                        {lineNumbers.map(num => (
-                            <div key={num} className="h-6 leading-6">{num}</div>
+            {/* Editor Core */}
+            <div className="flex-1 flex overflow-hidden relative">
+                {/* Line Numbers */}
+                <div
+                    ref={lineNumbersRef}
+                    className="w-16 bg-black/40 border-r border-white/5 overflow-hidden select-none pointer-events-none"
+                >
+                    <div className="py-10 px-6 font-mono text-[11px] text-slate-600 text-right space-y-[0px]">
+                        {Array.from({ length: stats.rows }).map((_, i) => (
+                            <div key={i} className="h-6 leading-6 tabular-nums">{i + 1}</div>
                         ))}
                     </div>
                 </div>
 
-                {/* Text area */}
-                <div className="flex-1 relative">
+                {/* Textarea */}
+                <div className="flex-1 relative bg-black/20">
                     <textarea
-                        value={textValue}
+                        ref={textareaRef}
+                        value={content}
                         onChange={handleChange}
-                        onKeyDown={handleKeyDown}
+                        onScroll={handleScroll}
                         readOnly={readOnly}
-                        className={`
-              w-full h-full resize-none p-3 
-              bg-gray-900 text-gray-100 
-              code-editor leading-6
-              focus:outline-none
-              ${readOnly ? 'cursor-not-allowed opacity-70' : ''}
-            `}
                         spellCheck={false}
-                        placeholder={readOnly ? 'Read-only mode' : 'Enter text here...'}
+                        placeholder={readOnly ? "// Read-only interface" : "Enter JSON matrix coordinate..."}
+                        className={`
+                            w-full h-full resize-none py-10 px-10
+                            bg-transparent text-slate-300
+                            font-mono text-[13px] leading-6
+                            focus:outline-none transition-colors
+                            ${readOnly ? 'cursor-not-allowed opacity-50' : 'focus:text-white'}
+                            focus-visible:ring-1 focus-visible:ring-cyan-500/30
+                            transition-opacity duration-300 ${isPending ? 'opacity-50' : 'opacity-100'}
+                        `}
                     />
 
-                    {/* Decorative overlay */}
-                    <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-transparent via-transparent to-gray-900/50" />
+                    {/* Visual Overlay Particles/Grid */}
+                    <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
+                        style={{ backgroundImage: 'linear-gradient(rgba(34, 211, 238, 0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(34, 211, 238, 0.1) 1px, transparent 1px)', backgroundSize: '40px 40px' }}
+                    />
                 </div>
             </div>
 
-            {/* Footer with tips */}
-            <div className="px-4 py-2 border-t border-gray-700 bg-gray-800/50 text-xs text-gray-500 flex items-center gap-2">
-                <FaRocket className="text-blue-400" />
-                <span>Edit your reality data, then commit changes to create a new version in the timeline.</span>
+            {/* Metrics Bar */}
+            <div className="h-11 px-8 border-t border-white/5 flex items-center justify-between bg-black/40 text-[9px] font-black uppercase tracking-[0.2em]">
+                <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-2">
+                        <span className="text-muted">Rows:</span>
+                        <span className="text-cyan-400 font-mono">{stats.rows}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-muted">Bytes:</span>
+                        <span className="text-indigo-400 font-mono">{stats.bytes}</span>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                    {isValid ? (
+                        <div className="flex items-center gap-2 text-accent-success">
+                            <FaMicrochip className="text-[10px]" />
+                            <span>integrity_verified</span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 text-accent-danger">
+                            <FaEraser className="text-[10px]" />
+                            <span>matrix_corruption</span>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
