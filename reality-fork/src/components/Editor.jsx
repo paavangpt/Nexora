@@ -89,8 +89,8 @@ export default function Editor({ data, onChange, onCommit, canCommit, currentBra
     return (
         <div className="h-full flex flex-col bg-deep selection:bg-cyan-500/30">
             {/* Upper Context Bar */}
-            <div className="h-14 px-6 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
-                <div className="flex items-center gap-4">
+            <div className="h-16 px-8 border-b border-white/5 flex items-center justify-between bg-white/[0.02]">
+                <div className="flex items-center gap-6">
                     <div className="w-8 h-8 rounded-lg bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
                         <FaTerminal className="text-sm" />
                     </div>
@@ -100,7 +100,7 @@ export default function Editor({ data, onChange, onCommit, canCommit, currentBra
                     </div>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-3">
                     {!readOnly && (
                         <>
                             <button onClick={handleAddField} disabled={!isValid} className="h-8 px-4 flex items-center gap-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 text-[10px] font-black uppercase text-slate-400 hover:text-white transition-all disabled:opacity-20">
@@ -131,9 +131,9 @@ export default function Editor({ data, onChange, onCommit, canCommit, currentBra
                 {/* Line Numbers */}
                 <div
                     ref={lineNumbersRef}
-                    className="w-14 bg-black/40 border-r border-white/5 overflow-hidden select-none pointer-events-none"
+                    className="w-16 bg-black/40 border-r border-white/5 overflow-hidden select-none pointer-events-none"
                 >
-                    <div className="py-6 px-4 font-mono text-[11px] text-slate-600 text-right space-y-[0px]">
+                    <div className="py-10 px-6 font-mono text-[11px] text-slate-600 text-right space-y-[0px]">
                         {Array.from({ length: lineCount }).map((_, i) => (
                             <div key={i} className="h-6 leading-6 tabular-nums">{i + 1}</div>
                         ))}
@@ -151,7 +151,7 @@ export default function Editor({ data, onChange, onCommit, canCommit, currentBra
                         spellCheck={false}
                         placeholder={readOnly ? "// Read-only interface" : "// Initialize matrix data..."}
                         className={`
-                            w-full h-full resize-none py-6 px-6
+                            w-full h-full resize-none py-10 px-10
                             bg-transparent text-slate-300
                             font-mono text-[13px] leading-6
                             focus:outline-none transition-colors
@@ -167,7 +167,7 @@ export default function Editor({ data, onChange, onCommit, canCommit, currentBra
             </div>
 
             {/* Metrics Bar */}
-            <div className="h-9 px-6 border-t border-white/5 flex items-center justify-between bg-black/40 text-[9px] font-black uppercase tracking-[0.2em]">
+            <div className="h-11 px-8 border-t border-white/5 flex items-center justify-between bg-black/40 text-[9px] font-black uppercase tracking-[0.2em]">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                         <span className="text-muted">Rows:</span>

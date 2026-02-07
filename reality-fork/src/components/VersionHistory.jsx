@@ -97,7 +97,7 @@ export default function VersionHistory({
                     {/* Glowy Timeline line */}
                     <div className="absolute left-[11px] top-6 bottom-0 w-px bg-gradient-to-b from-cyan-500/60 via-indigo-500/30 to-transparent" />
 
-                    <div className="space-y-12">
+                    <div className="space-y-16">
                         {sortedVersions.map((version, index) => {
                             const isSelected = selectedVersions.includes(version.id);
                             const isCurrent = currentVersion?.id === version.id;
@@ -129,13 +129,13 @@ export default function VersionHistory({
 
                                     {/* Version card */}
                                     <div className={`
-                                        relative p-5 glass-panel transition-all duration-300
+                                        relative p-7 glass-panel transition-all duration-300
                                         ${isCurrent ? 'border-cyan-500/50 bg-cyan-500/[0.03] scale-[1.02]' : 'hover:bg-white/[0.04]'}
                                         ${isSelected ? 'border-indigo-500/50 bg-indigo-500/[0.03]' : ''}
                                     `} onClick={() => onVersionSelect(version.id)}>
 
                                         {/* Badge/Status */}
-                                        <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center justify-between mb-6">
                                             <div className="flex items-center gap-2">
                                                 <span className="font-mono text-[9px] font-bold text-muted tracking-tighter uppercase px-2 py-0.5 rounded-md bg-white/5 border border-white/5 group-hover:border-white/10 transition-colors">
                                                     ID: {version.id.substring(0, 10)}
@@ -151,14 +151,14 @@ export default function VersionHistory({
                                         </div>
 
                                         {/* Message */}
-                                        <h3 className={`font-display font-semibold text-[15px] leading-snug mb-4 tracking-tight
+                                        <h3 className={`font-display font-semibold text-[15px] leading-snug mb-6 tracking-tight
                                             ${isCurrent ? 'text-white' : 'text-slate-300 group-hover:text-white'}
                                         `}>
                                             {version.message}
                                         </h3>
 
                                         {/* Metadata Row */}
-                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6 opacity-60">
+                                        <div className="flex flex-wrap items-center gap-x-6 gap-y-3 mb-8 opacity-60">
                                             <div className="flex items-center gap-1.5">
                                                 <FaUser className="text-[10px] text-cyan-500" />
                                                 <span className="text-[10px] font-bold uppercase tracking-wider">{version.author.split(' ')[0]}</span>
@@ -171,7 +171,7 @@ export default function VersionHistory({
 
                                         {/* Branches */}
                                         {versionBranchList.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mb-6">
+                                            <div className="flex flex-wrap gap-2 mb-8">
                                                 {versionBranchList.map(branch => (
                                                     <div key={branch} className={`
                                                         px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-[0.1em] bg-white/[0.03]
@@ -184,7 +184,7 @@ export default function VersionHistory({
                                         )}
 
                                         {/* Actions */}
-                                        <div className="flex gap-2">
+                                        <div className="flex gap-3">
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); onRollback(version.id); }}
                                                 className={`flex-1 h-9 flex items-center justify-center gap-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all

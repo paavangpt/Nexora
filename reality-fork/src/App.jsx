@@ -328,7 +328,7 @@ function App() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="hidden lg:flex items-center gap-3 pr-4 border-r border-white/5">
+            <div className="hidden lg:flex items-center gap-4 pr-6 border-r border-white/5">
               <button
                 onClick={() => setShowCommitModal(true)}
                 disabled={!canCommit}
@@ -350,7 +350,7 @@ function App() {
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3 pl-2">
               <button
                 onClick={() => setShowHelp(true)}
                 className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
@@ -419,7 +419,7 @@ function App() {
       </main>
 
       {/* Mobile Nav */}
-      <nav className="lg:hidden h-20 glass-panel rounded-none border-0 border-t border-subtle flex items-center px-4 py-2 gap-2 flex-shrink-0">
+      <nav className="lg:hidden h-20 glass-panel rounded-none border-0 border-t border-subtle flex items-center px-4 py-2 gap-3 flex-shrink-0">
         {[
           { id: 'history', icon: <FaHistory />, label: 'History' },
           { id: 'editor', icon: <FaCode />, label: 'Editor' },
@@ -457,7 +457,7 @@ function App() {
               className="input min-h-[140px] resize-none mb-6 font-medium text-lg placeholder:opacity-30"
               autoFocus
             />
-            <div className="flex gap-4">
+            <div className="flex gap-6">
               <button onClick={() => setShowCommitModal(false)} className="btn btn-secondary flex-1 h-12 uppercase tracking-widest text-[10px]">Abort</button>
               <button
                 onClick={handleCommit}
@@ -488,7 +488,7 @@ function App() {
               className="input mb-8 font-mono"
               autoFocus
             />
-            <div className="flex gap-3">
+            <div className="flex gap-4">
               <button onClick={() => { setShowBranchModal(false); setBranchFromVersion(null); }} className="btn btn-secondary flex-1">Exit</button>
               <button
                 onClick={() => {
@@ -562,7 +562,7 @@ function App() {
                 diff={selectedDiff.diff}
               />
             </div>
-            <div className="p-6 border-t border-white/5 flex justify-end">
+            <div className="p-8 border-t border-white/5 flex justify-end">
               <button onClick={() => setShowDiffModal(false)} className="btn btn-primary h-11 px-10 uppercase tracking-widest text-[10px]">End Analysis</button>
             </div>
           </div>
