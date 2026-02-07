@@ -6,24 +6,33 @@ import { FaCode, FaAlignLeft, FaPlus, FaRocket, FaCheckCircle, FaExclamationTria
  */
 export default function Editor({ data, onChange, readOnly = false }) {
     const [textValue, setTextValue] = useState('');
-    const [error, setError] = useState(null);
-    const [isValid, setIsValid] = useState(true);
+    // const [error, setError] = useState(null); // No validation errors for generic text
+    // const [isValid, setIsValid] = useState(true); // Always valid
     const [lineCount, setLineCount] = useState(1);
     const [charCount, setCharCount] = useState(0);
 
     // Sync text value with data prop
     useEffect(() => {
         try {
-            const formatted = JSON.stringify(data, null, 2);
-            setTextValue(formatted);
-            setError(null);
-            setIsValid(true);
-            setLineCount(formatted.split('\n').length);
-            setCharCount(formatted.length);
+            // Check if data is an object (from JSON legacy) or string
+            let content = '';
+            if (typeof data === 'string') {
+                content = data;
+            } else if (data && typeof data === 'object' && data.type === 'text' && typeof data.content === 'string') {
+                // New wrapper format
+                content = data.content;
+            } else if (data && typeof data === 'object') {
+                // Legacy support or if passing object (assume JSON)
+                content = JSON.stringify(data, null, 2);
+                if (content === '{}') content = ''; // Empty object -> empty string
+            }
+
+            setTextValue(content);
+            setLineCount(content.split('\n').length || 1);
+            setCharCount(content.length);
         } catch (e) {
-            setTextValue('{}');
-            setError('Invalid data received');
-            setIsValid(false);
+            console.error('Error parsing data for editor', e);
+            setTextValue('');
         }
     }, [data]);
 
@@ -33,52 +42,78 @@ export default function Editor({ data, onChange, readOnly = false }) {
         setCharCount(value.length);
         setLineCount(value.split('\n').length);
 
-        // Validate JSON
-        try {
-            const parsed = JSON.parse(value);
-            setError(null);
-            setIsValid(true);
-            onChange(parsed);
-        } catch (e) {
-            setError(`JSON Error: ${e.message}`);
-            setIsValid(false);
+        // For generic text, we just pass the string value or a simple wrapper
+        // The App/UseVersionControl expects "data" to be the state.
+        // We can pass the raw string if we update everything else, 
+        // OR we can pass { content: value } if we want to keep "object" structure.
+        // BUT, given the requirement "anything", passing raw string is risky if 
+        // the top-level state MUST be an object for some other reason (diffing?).
+        // 'useVersionControl' treats 'currentData' as what it saves. 
+        // 'getDiff' expects objects currently. 
+        // let's wrap it to keep compatibility with existing object-diff logic for now, 
+        // OR we update 'useVersionControl' to handle strings. 
+        // Plan said: "treat it as a string... or wrap". 
+        // Let's WRAP it transparently here so the rest of the app sees an object, 
+        // but the user sees text.
+        // ACTUALLY, to make "JSON" still work nicely as a subset, we could try to parse, 
+        // but user wants "anything". 
+        // Let's just pass the raw value. I need to update getDiff to handle strings too.
+        // PROCEEDING WITH: Pass raw value (or object if valid JSON? No, consistency first).
+        // Let's standardise on passing the value directly. 
+        // Wait, 'data' prop coming in might be object from legacy. 
+        // Let's try to emit { content: value, type: 'text' } wrapper? 
+        // UseVersionControl's `createVersion` just JSON.stringifies. 
+        // `getDiff` keys off user data. 
+        // If I change data shape to just "string", `getDiff` (keys) fails.
+        // So I MUST Wrap.
+
+        onChange({ content: value, type: 'text' });
+
+    }, [onChange]);
+
+    // We need to unwrap in the effect above.
+    // Let's refine the Effect to handle the wrapper.
+
+    /*
+    useEffect(() => {
+        let content = '';
+        if (data && data.type === 'text' && typeof data.content === 'string') {
+             content = data.content;
+        } else if (Object.keys(data).length === 0) {
+             content = '';
+        } else {
+             // Legacy or imported JSON
+             content = JSON.stringify(data, null, 2);
+        }
+        ...
+    */
+
+    // handleFormat and handleAddField are removed as they are JSON-specific.
+
+    const handleKeyDown = useCallback((e) => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const { selectionStart, selectionEnd, value } = e.target;
+            const newValue = value.substring(0, selectionStart) + '  ' + value.substring(selectionEnd);
+
+            setTextValue(newValue);
+            setCharCount(newValue.length); // Update char count immediately
+
+            // Trigger change with wrapper
+            onChange({ content: newValue, type: 'text' });
+
+            // Restore cursor position
+            requestAnimationFrame(() => {
+                if (e.target) {
+                    e.target.selectionStart = selectionStart + 2;
+                    e.target.selectionEnd = selectionStart + 2;
+                }
+            });
         }
     }, [onChange]);
 
-    const handleFormat = useCallback(() => {
-        try {
-            const parsed = JSON.parse(textValue);
-            const formatted = JSON.stringify(parsed, null, 2);
-            setTextValue(formatted);
-            setError(null);
-            setIsValid(true);
-            setLineCount(formatted.split('\n').length);
-            setCharCount(formatted.length);
-            onChange(parsed);
-        } catch (e) {
-            setError(`Cannot format: ${e.message}`);
-        }
-    }, [textValue, onChange]);
-
-    const handleAddField = useCallback(() => {
-        try {
-            const parsed = JSON.parse(textValue);
-            const newKey = `newField_${Date.now().toString(36)}`;
-            parsed[newKey] = 'value';
-            const formatted = JSON.stringify(parsed, null, 2);
-            setTextValue(formatted);
-            setError(null);
-            setIsValid(true);
-            setLineCount(formatted.split('\n').length);
-            setCharCount(formatted.length);
-            onChange(parsed);
-        } catch (e) {
-            setError(`Cannot add field: ${e.message}`);
-        }
-    }, [textValue, onChange]);
-
     // Generate line numbers
-    const lineNumbers = Array.from({ length: lineCount }, (_, i) => i + 1);
+    const lineNumbers = Array.from({ length: Math.max(1, lineCount) }, (_, i) => i + 1);
 
     return (
         <div className="h-full flex flex-col">
@@ -86,29 +121,13 @@ export default function Editor({ data, onChange, readOnly = false }) {
             <div className="flex items-center justify-between p-3 border-b border-gray-700 bg-gray-800/50">
                 <div className="flex items-center gap-2">
                     <FaCode className="text-blue-400" />
-                    <span className="font-semibold text-gray-200">Reality Matrix Editor</span>
+                    <span className="font-semibold text-gray-200">Reality Editor</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    {!readOnly && (
-                        <>
-                            <button
-                                onClick={handleAddField}
-                                className="btn btn-secondary text-sm py-1 px-3"
-                                disabled={!isValid}
-                            >
-                                <FaPlus className="text-xs" />
-                                Add Field
-                            </button>
-                            <button
-                                onClick={handleFormat}
-                                className="btn btn-secondary text-sm py-1 px-3"
-                                disabled={!isValid}
-                            >
-                                <FaAlignLeft className="text-xs" />
-                                Format
-                            </button>
-                        </>
-                    )}
+                    <div className="px-2 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse"></span>
+                        <span className="text-[10px] font-medium text-blue-300 uppercase tracking-wider">Text Mode</span>
+                    </div>
                 </div>
             </div>
 
@@ -123,26 +142,12 @@ export default function Editor({ data, onChange, readOnly = false }) {
                     </span>
                 </div>
                 <div className="flex items-center gap-2">
-                    {isValid ? (
-                        <span className="flex items-center gap-1 text-green-400">
-                            <FaCheckCircle />
-                            Valid JSON
-                        </span>
-                    ) : (
-                        <span className="flex items-center gap-1 text-red-400">
-                            <FaExclamationTriangle />
-                            Invalid JSON
-                        </span>
-                    )}
+                    {/* Validation status removed */}
                 </div>
             </div>
 
             {/* Error message */}
-            {error && (
-                <div className="px-4 py-2 bg-red-500/20 border-b border-red-500/50 text-red-400 text-sm animate-fadeIn">
-                    {error}
-                </div>
-            )}
+            {/* Error message removed */}
 
             {/* Editor area */}
             <div className="flex-1 flex overflow-hidden">
@@ -160,6 +165,7 @@ export default function Editor({ data, onChange, readOnly = false }) {
                     <textarea
                         value={textValue}
                         onChange={handleChange}
+                        onKeyDown={handleKeyDown}
                         readOnly={readOnly}
                         className={`
               w-full h-full resize-none p-3 
@@ -167,10 +173,9 @@ export default function Editor({ data, onChange, readOnly = false }) {
               code-editor leading-6
               focus:outline-none
               ${readOnly ? 'cursor-not-allowed opacity-70' : ''}
-              ${!isValid ? 'border-r-2 border-red-500' : ''}
             `}
                         spellCheck={false}
-                        placeholder={readOnly ? 'Read-only mode' : 'Enter JSON data to version...'}
+                        placeholder={readOnly ? 'Read-only mode' : 'Enter text here...'}
                     />
 
                     {/* Decorative overlay */}
@@ -181,7 +186,7 @@ export default function Editor({ data, onChange, readOnly = false }) {
             {/* Footer with tips */}
             <div className="px-4 py-2 border-t border-gray-700 bg-gray-800/50 text-xs text-gray-500 flex items-center gap-2">
                 <FaRocket className="text-blue-400" />
-                <span>Edit your reality matrix data, then commit changes to create a new version in the timeline.</span>
+                <span>Edit your reality data, then commit changes to create a new version in the timeline.</span>
             </div>
         </div>
     );

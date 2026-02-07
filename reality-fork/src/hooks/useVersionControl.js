@@ -19,21 +19,31 @@ import {
 /**
  * Custom hook for managing version control state and operations
  */
-export function useVersionControl() {
+/**
+ * Custom hook for managing version control state and operations
+ * @param {string} projectId - The project ID
+ */
+export function useVersionControl(projectId) {
     // Core state
     const [versions, setVersions] = useState([]);
     const [branches, setBranches] = useState({ main: null });
     const [currentBranch, setCurrentBranch] = useState('main');
     const [currentVersion, setCurrentVersion] = useState(null);
-    const [currentData, setCurrentData] = useState({});
+    const [currentData, setCurrentData] = useState({}); // Now generic object or string wrapper
     const [selectedVersions, setSelectedVersions] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
 
     // Initialize from localStorage
     useEffect(() => {
-        const storedVersions = loadVersions();
-        const storedBranches = loadBranches();
-        const storedCurrentBranch = loadCurrentBranch();
+        if (!projectId) {
+            setIsLoading(false);
+            return;
+        }
+
+        setIsLoading(true);
+        const storedVersions = loadVersions(projectId);
+        const storedBranches = loadBranches(projectId);
+        const storedCurrentBranch = loadCurrentBranch(projectId);
 
         setVersions(storedVersions);
         setBranches(storedBranches);
@@ -45,31 +55,39 @@ export function useVersionControl() {
             const headVersion = storedVersions.find(v => v.id === branchVersionId);
             if (headVersion) {
                 setCurrentVersion(headVersion);
+                // Deep clone data to avoid reference issues
                 setCurrentData(JSON.parse(JSON.stringify(headVersion.data)));
+            } else {
+                // If branch points to non-existent version (shouldn't happen), reset
+                setCurrentVersion(null);
+                setCurrentData({});
             }
+        } else {
+            setCurrentVersion(null);
+            setCurrentData({});
         }
 
         setIsLoading(false);
-    }, []);
+    }, [projectId]);
 
     // Save to localStorage when state changes
     useEffect(() => {
-        if (!isLoading) {
-            saveVersions(versions);
+        if (!isLoading && projectId) {
+            saveVersions(projectId, versions);
         }
-    }, [versions, isLoading]);
+    }, [versions, isLoading, projectId]);
 
     useEffect(() => {
-        if (!isLoading) {
-            saveBranches(branches);
+        if (!isLoading && projectId) {
+            saveBranches(projectId, branches);
         }
-    }, [branches, isLoading]);
+    }, [branches, isLoading, projectId]);
 
     useEffect(() => {
-        if (!isLoading) {
-            saveCurrentBranch(currentBranch);
+        if (!isLoading && projectId) {
+            saveCurrentBranch(projectId, currentBranch);
         }
-    }, [currentBranch, isLoading]);
+    }, [currentBranch, isLoading, projectId]);
 
     /**
      * Commit current changes as a new version
@@ -226,6 +244,12 @@ export function useVersionControl() {
             sourceVersion,
             targetVersion,
             commonAncestor,
+            // If conflict, we might need a way to present it. 
+            // Since we moved to generic text, mergeVersions in util might need updates or 
+            // if we wrap text in an object, it "might" just work for basic cases, 
+            // but text merging usually needs diff3. 
+            // For now, we rely on existing merge logic which is object-key based.
+            // If data is { content: "text" }, it will likely conflict if both changed.
         };
     }, [branches, versions]);
 
@@ -299,7 +323,7 @@ export function useVersionControl() {
     }, [selectedVersions, versions]);
 
     /**
-     * Reset all data
+     * Reset all data (Specific to project)
      */
     const resetAll = useCallback(() => {
         setVersions([]);
@@ -308,10 +332,11 @@ export function useVersionControl() {
         setCurrentVersion(null);
         setCurrentData({});
         setSelectedVersions([]);
+        // We probably don't want to wipe the project itself here, just its data history
     }, []);
 
     /**
-     * Initialize with sample data
+     * Initialize with data
      */
     const initWithData = useCallback((data, message = 'Initial commit') => {
         const newVersion = createVersion(data, null, message, 'User');

@@ -243,13 +243,13 @@ export default function DiffViewer({ version1, version2, diff, onClose }) {
                                         <div key={key} className="diff-modified p-3 rounded-lg">
                                             <div className="font-medium text-yellow-400 mb-2">{key}</div>
                                             <div className="grid grid-cols-2 gap-4 code-editor text-sm">
-                                                <div className="p-2 bg-red-500/10 rounded border border-red-500/30">
+                                                <div className="p-2 bg-red-500/10 rounded border border-red-500/30 overflow-hidden">
                                                     <div className="text-xs text-red-400 mb-1">Before</div>
-                                                    <div className="text-red-300">{formatValue(modified[key].before)}</div>
+                                                    <div className="text-red-300 whitespace-pre-wrap font-mono text-xs max-h-40 overflow-y-auto custom-scrollbar">{formatValue(modified[key].before)}</div>
                                                 </div>
-                                                <div className="p-2 bg-green-500/10 rounded border border-green-500/30">
+                                                <div className="p-2 bg-green-500/10 rounded border border-green-500/30 overflow-hidden">
                                                     <div className="text-xs text-green-400 mb-1">After</div>
-                                                    <div className="text-green-300">{formatValue(modified[key].after)}</div>
+                                                    <div className="text-green-300 whitespace-pre-wrap font-mono text-xs max-h-40 overflow-y-auto custom-scrollbar">{formatValue(modified[key].after)}</div>
                                                 </div>
                                             </div>
                                         </div>
