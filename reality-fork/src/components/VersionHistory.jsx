@@ -8,7 +8,7 @@ import {
     FaCheckSquare,
     FaSquare,
     FaProjectDiagram,
-    FaUser
+    FaUser,
 } from 'react-icons/fa';
 
 /**
@@ -45,20 +45,13 @@ export default function VersionHistory({
         return branchMap;
     }, [branches]);
 
-    // Branch color mapping
-    const branchColors = {
-        main: 'text-blue-400 border-blue-500',
-        default: 'text-green-400 border-green-500',
-    };
-
     const getBranchColor = (branchName) => {
-        if (branchColors[branchName]) return branchColors[branchName];
         const colors = [
-            'text-purple-400 border-purple-500',
-            'text-orange-400 border-orange-500',
-            'text-pink-400 border-pink-500',
-            'text-cyan-400 border-cyan-500',
-            'text-yellow-400 border-yellow-500',
+            'text-cyan-400 border-cyan-500/30',
+            'text-indigo-400 border-indigo-500/30',
+            'text-purple-400 border-purple-500/30',
+            'text-emerald-400 border-emerald-500/30',
+            'text-rose-400 border-rose-500/30',
         ];
         const hash = branchName.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
         return colors[hash % colors.length];
@@ -66,11 +59,13 @@ export default function VersionHistory({
 
     if (versions.length === 0) {
         return (
-            <div className="h-full flex flex-col items-center justify-center text-gray-500 p-6">
-                <FaHistory className="text-4xl mb-4 text-gray-600" />
-                <p className="text-center">No versions yet</p>
-                <p className="text-sm text-center mt-2 text-gray-600">
-                    Make changes and commit to create your first reality snapshot
+            <div className="h-full flex flex-col items-center justify-center text-slate-500 p-8">
+                <div className="w-16 h-16 rounded-full bg-slate-800/30 flex items-center justify-center mb-6">
+                    <FaHistory className="text-3xl opacity-20" />
+                </div>
+                <h3 className="font-display font-bold text-slate-400 uppercase tracking-widest text-xs mb-2">Void Timeline</h3>
+                <p className="text-[11px] text-center opacity-40 max-w-[140px] leading-relaxed">
+                    Amatrix initial state. No temporal snapshots detected.
                 </p>
             </div>
         );
@@ -79,28 +74,30 @@ export default function VersionHistory({
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="p-4 lg:p-5 border-b border-gray-700/50 bg-gradient-to-r from-gray-800/80 to-gray-800/40">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                        <FaHistory className="text-blue-400" />
+            <div className="px-6 py-8 border-b border-white/5 bg-white/[0.02]">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 text-xl border border-cyan-500/20 shadow-[0_0_15px_rgba(34,211,238,0.1)]">
+                        <FaHistory />
                     </div>
                     <div>
-                        <h2 className="font-semibold text-gray-100 text-lg">Timeline History</h2>
-                        <p className="text-xs text-gray-400">
-                            {versions.length} version{versions.length !== 1 ? 's' : ''} • Select 2 to compare
-                        </p>
+                        <h2 className="font-display font-black text-white text-xl uppercase italic tracking-tighter">Event Logan</h2>
+                        <div className="flex items-center gap-2">
+                            <div className="w-1 h-1 rounded-full bg-cyan-500" />
+                            <p className="text-[10px] font-bold text-muted uppercase tracking-widest">
+                                {versions.length} temporal nodes indexed
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
 
             {/* Version list */}
-            <div className="flex-1 overflow-y-auto p-4 lg:p-5">
+            <div className="flex-1 overflow-y-auto px-6 py-8 scrollbar-hide">
                 <div className="relative">
-                    {/* Timeline line */}
-                    <div className="absolute left-[17px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-blue-500/80 via-purple-500/50 to-transparent rounded-full" />
+                    {/* Glowy Timeline line */}
+                    <div className="absolute left-[11px] top-6 bottom-0 w-px bg-gradient-to-b from-cyan-500/60 via-indigo-500/30 to-transparent" />
 
-                    {/* Versions */}
-                    <div className="space-y-5">
+                    <div className="space-y-12">
                         {sortedVersions.map((version, index) => {
                             const isSelected = selectedVersions.includes(version.id);
                             const isCurrent = currentVersion?.id === version.id;
@@ -110,131 +107,98 @@ export default function VersionHistory({
                             return (
                                 <div
                                     key={version.id}
-                                    className={`
-                                        relative pl-12 animate-fadeIn
-                                        ${isCurrent ? 'opacity-100' : 'opacity-80 hover:opacity-100'}
-                                    `}
-                                    style={{ animationDelay: `${index * 50}ms` }}
+                                    className={`relative pl-10 animate-fadeIn group`}
+                                    style={{ animationDelay: `${index * 80}ms` }}
                                 >
                                     {/* Timeline dot */}
-                                    <div
-                                        className={`
-                                            absolute left-2 top-4 w-6 h-6 rounded-full flex items-center justify-center
-                                            transition-all duration-300 ring-2 ring-gray-900
-                                            ${isCurrent
-                                                ? 'bg-cyan-500 shadow-lg shadow-cyan-500/50'
-                                                : isMerge
-                                                    ? 'bg-purple-500'
-                                                    : 'bg-blue-500'
-                                            }
-                                        `}
-                                    >
-                                        {isMerge ? (
-                                            <FaProjectDiagram className="text-[10px] text-white" />
-                                        ) : (
-                                            <div className="w-2 h-2 bg-white rounded-full" />
-                                        )}
+                                    <div className={`
+                                        absolute left-[-2px] top-1.5 w-[26px] h-[26px] rounded-lg rotate-45 border flex items-center justify-center transition-all duration-500 z-10
+                                        ${isCurrent
+                                            ? 'bg-cyan-500 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]'
+                                            : isMerge
+                                                ? 'bg-purple-500/30 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                                                : isSelected
+                                                    ? 'bg-indigo-500 border-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.3)]'
+                                                    : 'bg-deep border-white/20 group-hover:border-white/40'
+                                        }
+                                    `}>
+                                        <div className="rotate-[-45deg] scale-75">
+                                            {isMerge ? <FaProjectDiagram className="text-white" /> : (isSelected ? <FaCheckSquare className="text-white" /> : <div className={`w-1.5 h-1.5 rounded-full ${isCurrent ? 'bg-deep' : 'bg-white/40'}`} />)}
+                                        </div>
                                     </div>
 
                                     {/* Version card */}
-                                    <div
-                                        className={`
-                                            p-4 lg:p-5 rounded-xl bg-gray-800/60 border border-gray-700/50
-                                            cursor-pointer transition-all duration-300 backdrop-blur-sm
-                                            ${isCurrent ? 'border-blue-500/50 shadow-lg shadow-blue-500/10' : 'hover:border-gray-600 hover:bg-gray-800/80'}
-                                            ${isSelected ? 'ring-2 ring-purple-500 ring-offset-2 ring-offset-gray-900' : ''}
-                                        `}
-                                    >
-                                        {/* Selection checkbox */}
-                                        <div className="flex items-start justify-between mb-3">
-                                            <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onVersionSelect(version.id);
-                                                }}
-                                                className="text-gray-400 hover:text-purple-400 transition-colors"
-                                                title={isSelected ? 'Deselect for diff' : 'Select for diff'}
-                                            >
-                                                {isSelected ? (
-                                                    <FaCheckSquare className="text-purple-400" />
-                                                ) : (
-                                                    <FaSquare />
-                                                )}
-                                            </button>
+                                    <div className={`
+                                        relative p-5 glass-panel transition-all duration-300
+                                        ${isCurrent ? 'border-cyan-500/50 bg-cyan-500/[0.03] scale-[1.02]' : 'hover:bg-white/[0.04]'}
+                                        ${isSelected ? 'border-indigo-500/50 bg-indigo-500/[0.03]' : ''}
+                                    `} onClick={() => onVersionSelect(version.id)}>
 
-                                            {isCurrent && (
-                                                <span className="text-xs px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded-full">
-                                                    Current
+                                        {/* Badge/Status */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-mono text-[9px] font-bold text-muted tracking-tighter uppercase px-2 py-0.5 rounded-md bg-white/5 border border-white/5 group-hover:border-white/10 transition-colors">
+                                                    ID: {version.id.substring(0, 10)}
                                                 </span>
+                                                {isMerge && <span className="text-[9px] font-black uppercase text-purple-400 tracking-widest px-1">Merge</span>}
+                                            </div>
+                                            {isCurrent && (
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-1 h-1 rounded-full bg-cyan-500 animate-pulse" />
+                                                    <span className="text-[9px] font-black uppercase text-cyan-400 tracking-[0.2em]">Active</span>
+                                                </div>
                                             )}
                                         </div>
 
                                         {/* Message */}
-                                        <h3 className="font-medium text-gray-100 mb-3 line-clamp-2 text-base">
+                                        <h3 className={`font-display font-semibold text-[15px] leading-snug mb-4 tracking-tight
+                                            ${isCurrent ? 'text-white' : 'text-slate-300 group-hover:text-white'}
+                                        `}>
                                             {version.message}
                                         </h3>
 
-                                        {/* Branch labels */}
+                                        {/* Metadata Row */}
+                                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-6 opacity-60">
+                                            <div className="flex items-center gap-1.5">
+                                                <FaUser className="text-[10px] text-cyan-500" />
+                                                <span className="text-[10px] font-bold uppercase tracking-wider">{version.author.split(' ')[0]}</span>
+                                            </div>
+                                            <div className="flex items-center gap-1.5">
+                                                <FaClock className="text-[10px] text-indigo-500" />
+                                                <span className="text-[10px] font-bold uppercase tracking-wider">{format(new Date(version.timestamp), 'HH:mm')}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Branches */}
                                         {versionBranchList.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mb-3">
+                                            <div className="flex flex-wrap gap-2 mb-6">
                                                 {versionBranchList.map(branch => (
-                                                    <span
-                                                        key={branch}
-                                                        className={`
-                              text-xs px-2 py-0.5 rounded-full border
-                              ${getBranchColor(branch)}
-                              bg-gray-900/50
-                            `}
-                                                    >
-                                                        <FaCodeBranch className="inline mr-1 text-[10px]" />
+                                                    <div key={branch} className={`
+                                                        px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-[0.1em] bg-white/[0.03]
+                                                        ${getBranchColor(branch)}
+                                                    `}>
                                                         {branch}
-                                                    </span>
+                                                    </div>
                                                 ))}
                                             </div>
                                         )}
 
-                                        {/* Metadata */}
-                                        <div className="flex flex-wrap items-center gap-3 text-sm text-gray-400 mb-4 pb-3 border-b border-gray-700/30">
-                                            <span className="flex items-center gap-1.5">
-                                                <FaUser className="text-xs text-gray-500" />
-                                                {version.author}
-                                            </span>
-                                            <span className="flex items-center gap-1.5">
-                                                <FaClock className="text-xs text-gray-500" />
-                                                {format(new Date(version.timestamp), 'MMM d, HH:mm')}
-                                            </span>
-                                            <span className="font-mono text-gray-500 text-xs">
-                                                #{version.id.substring(0, 8)}
-                                            </span>
-                                            {isMerge && (
-                                                <span className="text-purple-400 text-xs">
-                                                    • merge
-                                                </span>
-                                            )}
-                                        </div>
-
                                         {/* Actions */}
-                                        <div className="flex gap-3">
+                                        <div className="flex gap-2">
                                             <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onRollback(version.id);
-                                                }}
-                                                className="btn btn-secondary text-sm py-2 px-4 flex-1"
+                                                onClick={(e) => { e.stopPropagation(); onRollback(version.id); }}
+                                                className={`flex-1 h-9 flex items-center justify-center gap-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all
+                                                    ${isCurrent ? 'bg-white/5 text-slate-600 cursor-not-allowed border border-white/5' : 'bg-white/5 hover:bg-white/10 text-white border border-white/10 hover:border-white/20'}
+                                                `}
                                                 disabled={isCurrent}
                                             >
-                                                <FaUndo className="text-xs" />
-                                                Rollback
+                                                <FaUndo className="opacity-60" /> Shift
                                             </button>
                                             <button
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onBranchFromVersion(version.id);
-                                                }}
-                                                className="btn btn-secondary text-sm py-2 px-4 flex-1"
+                                                onClick={(e) => { e.stopPropagation(); onBranchFromVersion(version.id); }}
+                                                className="flex-1 h-9 flex items-center justify-center gap-2 rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 border border-indigo-500/20 hover:border-indigo-400/30 text-[10px] font-black uppercase tracking-widest transition-all"
                                             >
-                                                <FaCodeBranch className="text-xs" />
-                                                Branch
+                                                <FaCodeBranch className="opacity-60" /> Fork
                                             </button>
                                         </div>
                                     </div>

@@ -6,14 +6,12 @@ import {
   FaHistory,
   FaRocket,
   FaTrash,
-  FaDatabase,
   FaTimes,
   FaCheck,
   FaInfoCircle,
   FaKeyboard,
   FaCode,
   FaBars,
-  FaChevronLeft,
   FaUndo,
   FaExclamationTriangle,
 } from 'react-icons/fa';
@@ -28,7 +26,6 @@ import VersionHistory from './components/VersionHistory';
 import BranchManager from './components/BranchManager';
 import DiffViewer from './components/DiffViewer';
 import MergeConflicts from './components/MergeConflicts';
-import Timeline from './components/Timeline';
 
 function App() {
   const {
@@ -43,7 +40,6 @@ function App() {
     createBranch,
     switchBranch,
     deleteBranch,
-    rollbackToVersion,
     hardRollback,
     mergeBranches,
     completeMerge,
@@ -53,13 +49,11 @@ function App() {
     initWithData,
     canCommit,
     versionCount,
-    branchList,
   } = useVersionControl();
 
   // UI state
   const [showCommitModal, setShowCommitModal] = useState(false);
   const [showDiffModal, setShowDiffModal] = useState(false);
-  const [showTimelineView, setShowTimelineView] = useState(false);
   const [showBranchModal, setShowBranchModal] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -74,17 +68,14 @@ function App() {
 
   // Mobile responsive state
   const [mobileView, setMobileView] = useState('editor'); // 'history' | 'editor' | 'branches'
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
-  const [showLeftPanel, setShowLeftPanel] = useState(false);
-  const [showRightPanel, setShowRightPanel] = useState(false);
+  const [newBranchName, setNewBranchName] = useState('');
 
   // Check screen size for responsive behavior
   useEffect(() => {
     const checkScreenSize = () => {
-      setIsMobile(window.innerWidth < 768);
-      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024);
+      if (window.innerWidth >= 1024) {
+        // Reset mobile view if we are on desktop
+      }
     };
 
     checkScreenSize();
@@ -125,6 +116,7 @@ function App() {
         setShowBranchModal(false);
         setShowHelp(false);
         setMergeConflicts(null);
+        setShowRollbackModal(false);
       }
     };
 
@@ -174,7 +166,7 @@ function App() {
     const version = versions.find(v => v.id === versionId);
     if (version) {
       setRollbackTargetVersion(version);
-      setRollbackBranchName(`rollback-${version.id.substring(0, 8)}`);
+      setRollbackBranchName(`fork-${version.id.substring(0, 6)}`);
       setShowRollbackModal(true);
     }
   }, [versions]);
@@ -187,13 +179,12 @@ function App() {
     }
 
     try {
-      // Create new branch from the rollback target version
       createBranch(rollbackBranchName.trim(), rollbackTargetVersion.id);
-      // Switch to the new branch
       switchBranch(rollbackBranchName.trim());
       setShowRollbackModal(false);
       setRollbackTargetVersion(null);
-      showNotification(`Created branch "${rollbackBranchName}" from version. Now on new branch.`, 'success');
+      setRollbackBranchName('');
+      showNotification(`Fork successful: ${rollbackBranchName}`, 'success');
     } catch (error) {
       showNotification(error.message, 'error');
     }
@@ -203,14 +194,13 @@ function App() {
   const handleHardRollback = useCallback(async () => {
     if (!rollbackTargetVersion) return;
 
-    const confirmMsg = 'HARD ROLLBACK will permanently delete all versions after this point. This cannot be undone. Are you absolutely sure?';
-    if (!confirm(confirmMsg)) return;
+    if (!confirm('HARD ROLLBACK: This is destructive and permanent. Delete all subsequent versions?')) return;
 
     try {
       await hardRollback(rollbackTargetVersion.id);
       setShowRollbackModal(false);
       setRollbackTargetVersion(null);
-      showNotification('Hard rollback complete. All versions after this point have been deleted.', 'success');
+      showNotification('Hard rollback complete.', 'success');
     } catch (error) {
       showNotification(error.message, 'error');
     }
@@ -222,7 +212,6 @@ function App() {
       const result = mergeBranches(sourceBranch, targetBranch);
 
       if (!result.success) {
-        // Has conflicts
         setMergeConflicts(result.conflicts);
         setPendingMerge({
           sourceBranch,
@@ -231,7 +220,6 @@ function App() {
           sourceVersionId: result.sourceVersion.id,
         });
       } else {
-        // No conflicts, complete merge
         completeMerge(
           result.mergedData,
           sourceBranch,
@@ -259,16 +247,16 @@ function App() {
 
     setMergeConflicts(null);
     setPendingMerge(null);
-    showNotification('Merge completed with resolved conflicts', 'success');
+    showNotification('Merge completed', 'success');
   }, [pendingMerge, completeMerge, showNotification]);
 
   // Handle reset
   const handleReset = useCallback(() => {
-    if (confirm('This will delete ALL versions and branches. Are you absolutely sure?')) {
+    if (confirm('Erase all timelines? This action cannot be undone.')) {
       clearAll();
       resetAll();
       setShowWelcome(true);
-      showNotification('All data has been reset', 'info');
+      showNotification('System reset successful', 'info');
     }
   }, [resetAll, showNotification]);
 
@@ -281,582 +269,364 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <FaRocket className="text-6xl text-blue-500 animate-pulse mx-auto mb-4" />
-          <p className="text-gray-400">Initializing Reality Control...</p>
+      <div className="min-h-screen flex items-center justify-center bg-[#03050a]">
+        <div className="text-center animate-fadeIn">
+          <div className="relative w-24 h-24 mx-auto mb-8">
+            <div className="absolute inset-0 rounded-full border-2 border-cyan-500/20 border-t-cyan-500 animate-spin" />
+            <div className="absolute inset-2 rounded-full border-2 border-purple-500/20 border-b-purple-500 animate-spin-slow" />
+            <FaRocket className="absolute inset-0 m-auto text-3xl text-cyan-400" />
+          </div>
+          <p className="font-display font-semibold text-lg tracking-widest text-cyan-500 uppercase">Synchronizing Reality</p>
+          <div className="mt-4 flex justify-center gap-1">
+            {[0, 1, 2].map(i => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full bg-cyan-500/50 animate-bounce" style={{ animationDelay: `${i * 0.2}s` }} />
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-gray-900/80 backdrop-blur-lg border-b border-gray-700 sticky top-0 z-50">
-        <div className="container-responsive py-2 lg:py-3">
-          <div className="header-responsive">
-            {/* Logo and title */}
-            <div className="flex items-center gap-2 lg:gap-3">
-              <div className="w-8 h-8 lg:w-10 lg:h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                <FaCodeBranch className="text-white text-sm lg:text-xl" />
-              </div>
-              <div>
-                <h1 className="header-title text-lg lg:text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  REALITY FORK
-                </h1>
-                <p className="header-subtitle text-xs text-gray-500 hidden sm:block">Version Control for Parallel Realities</p>
+    <div className="h-screen flex flex-col overflow-hidden bg-deep selection:bg-cyan-500/30">
+      {/* Header - Immersive Glass */}
+      <header className="h-[var(--header-height)] glass-panel border-0 border-b border-subtle rounded-none z-[100] flex items-center px-6 flex-shrink-0">
+        <div className="w-full flex items-center justify-between">
+          <div className="flex items-center gap-5">
+            <div className="relative group cursor-pointer" onClick={() => setShowWelcome(true)}>
+              <div className="absolute inset-0 bg-cyan-500 blur-xl opacity-20 group-hover:opacity-50 transition-all duration-500" />
+              <div className="relative w-12 h-12 rounded-2xl bg-cyan-500 flex items-center justify-center shadow-[0_0_30px_rgba(34,211,238,0.3)] transform transition-transform group-hover:rotate-12">
+                <FaCodeBranch className="text-bg-deep text-2xl" />
               </div>
             </div>
-
-            {/* Current branch indicator - hidden on very small screens */}
-            <div className="hidden sm:flex items-center gap-2 px-2 lg:px-3 py-1 lg:py-1.5 bg-gray-800 rounded-full">
-              <FaCodeBranch className="text-blue-400 text-sm" />
-              <span className="text-xs lg:text-sm font-medium text-gray-200">{currentBranch}</span>
-              <span className="hidden md:inline text-xs text-gray-500">({versionCount} versions)</span>
+            <div className="select-none">
+              <h1 className="text-2xl font-display font-black tracking-tighter text-white leading-none">
+                REALITY<span className="text-cyan-400 ml-1">FORK</span>
+              </h1>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                <p className="text-[9px] font-bold tracking-[0.3em] text-cyan-500/70 uppercase">Parallel Temporal Control</p>
+              </div>
             </div>
+          </div>
 
-            {/* Action buttons - Desktop */}
-            <div className="hidden lg:flex items-center gap-2">
-              {/* Commit button */}
+          {/* Center Stats */}
+          <div className="hidden xl:flex items-center h-11 px-6 bg-white/[0.03] border border-white/5 rounded-2xl gap-6 font-display">
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-0.5">Active Sequence</span>
+              <span className="text-xs font-bold text-cyan-400 font-mono flex items-center gap-2">
+                <FaCodeBranch className="text-[10px]" /> {currentBranch}
+              </span>
+            </div>
+            <div className="w-px h-6 bg-white/10" />
+            <div className="flex flex-col">
+              <span className="text-[8px] font-black text-muted uppercase tracking-[0.2em] mb-0.5">Vector Nodes</span>
+              <span className="text-xs font-bold text-indigo-400 font-mono flex items-center gap-2">
+                <FaHistory className="text-[10px]" /> {versionCount} units
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden lg:flex items-center gap-3 pr-4 border-r border-white/5">
               <button
                 onClick={() => setShowCommitModal(true)}
                 disabled={!canCommit}
-                className={`btn ${canCommit ? 'btn-success' : 'btn-secondary opacity-50 cursor-not-allowed'}`}
+                className={`btn btn-primary h-11 px-6 ${!canCommit && 'opacity-30 grayscale cursor-not-allowed'}`}
+                style={{ background: canCommit ? 'var(--accent-success)' : undefined }}
               >
                 <FaSave />
-                <span className="btn-text">Commit</span>
-                {canCommit && <span className="ml-1 w-2 h-2 bg-green-300 rounded-full animate-pulse" />}
+                <span className="uppercase tracking-wider text-[11px]">Snapshot</span>
+                {canCommit && <div className="w-2 h-2 rounded-full bg-white animate-pulse ml-1" />}
               </button>
 
-              {/* View Diff button */}
               <button
                 onClick={() => setShowDiffModal(true)}
                 disabled={selectedVersions.length !== 2}
-                className={`btn ${selectedVersions.length === 2 ? 'btn-primary' : 'btn-secondary opacity-50 cursor-not-allowed'}`}
+                className={`btn btn-secondary h-11 px-6 ${selectedVersions.length !== 2 && 'opacity-30'}`}
               >
                 <FaExchangeAlt />
-                <span className="btn-text">Diff ({selectedVersions.length}/2)</span>
+                <span className="uppercase tracking-wider text-[11px]">Compare ({selectedVersions.length})</span>
               </button>
+            </div>
 
-              {/* Timeline toggle */}
-              <button
-                onClick={() => setShowTimelineView(!showTimelineView)}
-                className={`btn ${showTimelineView ? 'btn-primary' : 'btn-secondary'}`}
-              >
-                <FaHistory />
-                <span className="btn-text">Timeline</span>
-              </button>
-
-              {/* Sample data dropdown */}
-              <div className="relative group">
-                <button className="btn btn-secondary">
-                  <FaDatabase />
-                  <span className="btn-text">Samples</span>
-                </button>
-                <div className="absolute right-0 mt-2 w-48 py-2 bg-gray-800 rounded-lg shadow-xl border border-gray-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50">
-                  {Object.keys(allSamples).map(key => (
-                    <button
-                      key={key}
-                      onClick={() => handleLoadSample(key)}
-                      className="w-full px-4 py-2 text-left text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                    >
-                      {key}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Help button */}
+            <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowHelp(true)}
-                className="btn btn-secondary"
-                title="Help & Keyboard Shortcuts"
+                className="w-11 h-11 flex items-center justify-center rounded-xl bg-white/5 border border-white/10 text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"
+                title="Shortcuts"
               >
-                <FaKeyboard />
+                <FaKeyboard className="text-lg" />
               </button>
-
-              {/* Reset button */}
               <button
                 onClick={handleReset}
-                className="btn btn-danger"
-                title="Reset all data"
+                className="w-11 h-11 flex items-center justify-center rounded-xl bg-rose-500/5 border border-rose-500/10 text-rose-500/60 hover:text-rose-500 hover:bg-rose-500/20 transition-all"
+                title="Reset Workspace"
               >
-                <FaTrash />
+                <FaTrash className="text-lg" />
               </button>
             </div>
 
-            {/* Mobile/Tablet action buttons */}
-            <div className="flex lg:hidden items-center gap-1">
-              {/* Quick commit on mobile */}
-              <button
-                onClick={() => setShowCommitModal(true)}
-                disabled={!canCommit}
-                className={`btn p-2 ${canCommit ? 'btn-success' : 'btn-secondary opacity-50'}`}
-                title="Commit"
-              >
-                <FaSave />
-              </button>
-
-              {/* Menu toggle */}
-              <button
-                onClick={() => setShowMobileMenu(!showMobileMenu)}
-                className="btn btn-secondary p-2"
-                title="Menu"
-              >
-                <FaBars />
-              </button>
-            </div>
+            <button
+              onClick={() => setMobileView(mobileView === 'editor' ? 'history' : 'editor')}
+              className="lg:hidden w-11 h-11 flex items-center justify-center rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400"
+            >
+              <FaBars />
+            </button>
           </div>
-
-          {/* Mobile menu dropdown */}
-          {showMobileMenu && (
-            <div className="lg:hidden mt-3 p-3 bg-gray-800/90 rounded-lg animate-slideUp border border-gray-700">
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                <button
-                  onClick={() => { setShowDiffModal(true); setShowMobileMenu(false); }}
-                  disabled={selectedVersions.length !== 2}
-                  className={`btn text-sm ${selectedVersions.length === 2 ? 'btn-primary' : 'btn-secondary opacity-50'}`}
-                >
-                  <FaExchangeAlt /> Diff
-                </button>
-                <button
-                  onClick={() => { setShowTimelineView(!showTimelineView); setShowMobileMenu(false); }}
-                  className={`btn text-sm ${showTimelineView ? 'btn-primary' : 'btn-secondary'}`}
-                >
-                  <FaHistory /> Timeline
-                </button>
-                <button
-                  onClick={() => setShowHelp(true)}
-                  className="btn btn-secondary text-sm"
-                >
-                  <FaKeyboard /> Help
-                </button>
-                <div className="relative col-span-2 sm:col-span-1">
-                  <select
-                    onChange={(e) => { if (e.target.value) handleLoadSample(e.target.value); setShowMobileMenu(false); }}
-                    className="input text-sm w-full"
-                    defaultValue=""
-                  >
-                    <option value="" disabled>Load Sample...</option>
-                    {Object.keys(allSamples).map(key => (
-                      <option key={key} value={key}>{key}</option>
-                    ))}
-                  </select>
-                </div>
-                <button
-                  onClick={handleReset}
-                  className="btn btn-danger text-sm"
-                >
-                  <FaTrash /> Reset
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </header>
 
-      {/* Main content */}
-      <main className={`flex-1 flex overflow-hidden ${isMobile ? 'pb-16' : ''}`}>
-        {showTimelineView ? (
-          /* Timeline view - responsive padding */
-          <div className="flex-1 p-2 lg:p-4">
-            <div className="h-full glass-panel overflow-hidden">
-              <Timeline
-                versions={versions}
-                branches={branches}
-                currentVersion={currentVersion}
-                currentBranch={currentBranch}
-                onVersionClick={(v) => handleRollback(v.id)}
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Desktop 3-column layout */}
-            <div className="hidden lg:flex flex-1 overflow-hidden">
-              {/* Left sidebar - Version History */}
-              <aside className="w-80 border-r border-gray-700 bg-gray-900/50 flex-shrink-0 overflow-hidden">
-                <VersionHistory
-                  versions={versions}
-                  currentVersion={currentVersion}
-                  selectedVersions={selectedVersions}
-                  branches={branches}
-                  currentBranch={currentBranch}
-                  onVersionSelect={toggleVersionSelection}
-                  onRollback={handleRollback}
-                  onBranchFromVersion={handleBranchFromVersion}
-                />
-              </aside>
+      {/* Main Grid */}
+      <main className="flex-1 main-grid overflow-hidden bg-white/[0.01]">
+        {/* Left: History */}
+        <aside className={`${mobileView === 'history' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel overflow-hidden border-0 lg:border-r`}>
+          <VersionHistory
+            versions={versions}
+            currentVersion={currentVersion}
+            selectedVersions={selectedVersions}
+            branches={branches}
+            currentBranch={currentBranch}
+            onVersionSelect={toggleVersionSelection}
+            onRollback={handleRollback}
+            onBranchFromVersion={handleBranchFromVersion}
+          />
+        </aside>
 
-              {/* Center - Editor */}
-              <div className="flex-1 p-4 overflow-hidden">
-                <div className="h-full glass-panel overflow-hidden">
-                  <Editor
-                    data={currentData}
-                    onChange={updateCurrentData}
-                    readOnly={false}
-                  />
-                </div>
-              </div>
+        {/* Center: Editor */}
+        <section className={`${mobileView === 'editor' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel animate-fadeIn overflow-hidden border-0`} style={{ animationDelay: '0.1s' }}>
+          <Editor
+            data={currentData}
+            onChange={updateCurrentData}
+            onCommit={() => setShowCommitModal(true)}
+            canCommit={canCommit}
+            currentBranch={currentBranch}
+          />
+        </section>
 
-              {/* Right sidebar - Branch Manager */}
-              <aside className="w-80 border-l border-gray-700 bg-gray-900/50 flex-shrink-0 overflow-hidden">
-                <BranchManager
-                  branches={branches}
-                  currentBranch={currentBranch}
-                  versions={versions}
-                  onCreateBranch={(name, versionId) => {
-                    try {
-                      createBranch(name, versionId);
-                      setShowBranchModal(false);
-                      showNotification(`Branch "${name}" created`, 'success');
-                    } catch (error) {
-                      showNotification(error.message, 'error');
-                    }
-                  }}
-                  onSwitchBranch={(name) => {
-                    try {
-                      switchBranch(name);
-                      showNotification(`Switched to branch "${name}"`, 'info');
-                    } catch (error) {
-                      showNotification(error.message, 'error');
-                    }
-                  }}
-                  onDeleteBranch={(name) => {
-                    try {
-                      deleteBranch(name);
-                      showNotification(`Branch "${name}" deleted`, 'info');
-                    } catch (error) {
-                      showNotification(error.message, 'error');
-                    }
-                  }}
-                  onMergeBranch={handleMerge}
-                />
-              </aside>
-            </div>
-
-            {/* Mobile/Tablet single view with navigation */}
-            <div className="flex lg:hidden flex-1 flex-col overflow-hidden">
-              {/* Content based on mobileView */}
-              <div className="flex-1 overflow-hidden">
-                {mobileView === 'history' && (
-                  <div className="h-full bg-gray-900/50 overflow-auto animate-fadeIn">
-                    <VersionHistory
-                      versions={versions}
-                      currentVersion={currentVersion}
-                      selectedVersions={selectedVersions}
-                      branches={branches}
-                      currentBranch={currentBranch}
-                      onVersionSelect={toggleVersionSelection}
-                      onRollback={handleRollback}
-                      onBranchFromVersion={handleBranchFromVersion}
-                    />
-                  </div>
-                )}
-
-                {mobileView === 'editor' && (
-                  <div className="h-full p-2 overflow-hidden animate-fadeIn">
-                    <div className="h-full glass-panel overflow-hidden">
-                      <Editor
-                        data={currentData}
-                        onChange={updateCurrentData}
-                        readOnly={false}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {mobileView === 'branches' && (
-                  <div className="h-full bg-gray-900/50 overflow-auto animate-fadeIn">
-                    <BranchManager
-                      branches={branches}
-                      currentBranch={currentBranch}
-                      versions={versions}
-                      onCreateBranch={(name, versionId) => {
-                        try {
-                          createBranch(name, versionId);
-                          showNotification(`Branch "${name}" created`, 'success');
-                        } catch (error) {
-                          showNotification(error.message, 'error');
-                        }
-                      }}
-                      onSwitchBranch={(name) => {
-                        try {
-                          switchBranch(name);
-                          showNotification(`Switched to branch "${name}"`, 'info');
-                        } catch (error) {
-                          showNotification(error.message, 'error');
-                        }
-                      }}
-                      onDeleteBranch={(name) => {
-                        try {
-                          deleteBranch(name);
-                          showNotification(`Branch "${name}" deleted`, 'info');
-                        } catch (error) {
-                          showNotification(error.message, 'error');
-                        }
-                      }}
-                      onMergeBranch={handleMerge}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Mobile bottom navigation */}
-            <nav className="mobile-nav-tabs lg:hidden">
-              <button
-                onClick={() => setMobileView('history')}
-                className={`mobile-nav-tab ${mobileView === 'history' ? 'active' : ''}`}
-              >
-                <FaHistory />
-                <span>History</span>
-              </button>
-              <button
-                onClick={() => setMobileView('editor')}
-                className={`mobile-nav-tab ${mobileView === 'editor' ? 'active' : ''}`}
-              >
-                <FaCode />
-                <span>Editor</span>
-              </button>
-              <button
-                onClick={() => setMobileView('branches')}
-                className={`mobile-nav-tab ${mobileView === 'branches' ? 'active' : ''}`}
-              >
-                <FaCodeBranch />
-                <span>Branches</span>
-              </button>
-            </nav>
-          </>
-        )}
+        {/* Right: Branches */}
+        <aside className={`${mobileView === 'branches' ? 'flex' : 'hidden'} lg:flex flex-col glass-panel overflow-hidden border-0 lg:border-l`}>
+          <BranchManager
+            branches={branches}
+            currentBranch={currentBranch}
+            versions={versions}
+            onSwitchBranch={switchBranch}
+            onCreateBranch={() => setShowBranchModal(true)}
+            onDeleteBranch={deleteBranch}
+            onMergeBranch={handleMerge}
+          />
+        </aside>
       </main>
 
-      {/* Modals */}
+      {/* Mobile Nav */}
+      <nav className="lg:hidden h-20 glass-panel rounded-none border-0 border-t border-subtle flex items-center px-4 py-2 gap-2 flex-shrink-0">
+        {[
+          { id: 'history', icon: <FaHistory />, label: 'History' },
+          { id: 'editor', icon: <FaCode />, label: 'Editor' },
+          { id: 'branches', icon: <FaCodeBranch />, label: 'Branches' }
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setMobileView(tab.id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-1.5 rounded-2xl transition-all duration-300 ${mobileView === tab.id ? 'text-cyan-400 bg-cyan-400/10 shadow-[0_0_20px_rgba(34,211,238,0.1)]' : 'text-slate-500'
+              }`}
+          >
+            <span className="text-xl">{tab.icon}</span>
+            <span className="text-[9px] font-black uppercase tracking-wider">{tab.label}</span>
+          </button>
+        ))}
+      </nav>
 
-      {/* Commit Modal */}
+      {/* Modals */}
       {showCommitModal && (
         <div className="modal-overlay animate-fadeIn" onClick={() => setShowCommitModal(false)}>
-          <div
-            className="glass-panel w-full max-w-md p-6"
-            onClick={e => e.stopPropagation()}
-          >
-            <h2 className="text-xl font-bold text-gray-100 mb-4">Commit Changes</h2>
-            <p className="text-sm text-gray-400 mb-4">
-              Create a new version snapshot of your current reality matrix.
-            </p>
-            <input
-              type="text"
+          <div className="glass-panel w-full max-w-lg p-8 m-4 animate-slideRight" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 rounded-2xl bg-accent-success/20 flex items-center justify-center text-accent-success">
+                <FaSave className="text-2xl" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-display font-bold text-white uppercase tracking-tight">Capture Reality</h2>
+                <p className="text-xs text-slate-400 italic">Generate persistent snapshot of current data matrix</p>
+              </div>
+            </div>
+            <textarea
               value={commitMessage}
               onChange={(e) => setCommitMessage(e.target.value)}
-              placeholder="Enter commit message..."
-              className="input mb-4"
+              placeholder="Designate snapshot identifier..."
+              className="input min-h-[140px] resize-none mb-6 font-medium text-lg placeholder:opacity-30"
               autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && handleCommit()}
             />
-            <div className="flex gap-3 justify-end">
-              <button onClick={() => setShowCommitModal(false)} className="btn btn-secondary">
-                <FaTimes /> Cancel
-              </button>
-              <button onClick={handleCommit} className="btn btn-success">
-                <FaCheck /> Commit
+            <div className="flex gap-4">
+              <button onClick={() => setShowCommitModal(false)} className="btn btn-secondary flex-1 h-12 uppercase tracking-widest text-[10px]">Abort</button>
+              <button
+                onClick={handleCommit}
+                disabled={!commitMessage.trim()}
+                className="btn btn-primary bg-accent-success flex-1 h-12 disabled:opacity-30 uppercase tracking-widest text-[10px]"
+              >
+                Snapshot Sequence
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Diff Modal */}
-      {showDiffModal && selectedDiff && (
-        <DiffViewer
-          version1={selectedDiff.version1}
-          version2={selectedDiff.version2}
-          diff={selectedDiff.diff}
-          onClose={() => setShowDiffModal(false)}
-        />
+      {showBranchModal && (
+        <div className="modal-overlay animate-fadeIn" onClick={() => { setShowBranchModal(false); setBranchFromVersion(null); }}>
+          <div className="glass-panel w-full max-w-md p-8 m-4 animate-slideRight" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-11 h-11 rounded-2xl bg-accent-primary/20 flex items-center justify-center text-accent-primary text-xl">
+                <FaCodeBranch />
+              </div>
+              <h2 className="text-xl font-display font-bold text-white uppercase">Initialize Fork</h2>
+            </div>
+            <input
+              type="text"
+              value={newBranchName}
+              placeholder="Fork identifier..."
+              onChange={(e) => setNewBranchName(e.target.value)}
+              className="input mb-8 font-mono"
+              autoFocus
+            />
+            <div className="flex gap-3">
+              <button onClick={() => { setShowBranchModal(false); setBranchFromVersion(null); }} className="btn btn-secondary flex-1">Exit</button>
+              <button
+                onClick={() => {
+                  createBranch(newBranchName, branchFromVersion);
+                  setShowBranchModal(false);
+                  setNewBranchName('');
+                  setBranchFromVersion(null);
+                  showNotification(`Fork successful: ${newBranchName}`, 'success');
+                }}
+                disabled={!newBranchName.trim()}
+                className="btn btn-primary flex-1 disabled:opacity-30"
+              >
+                Confirm Fork
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* Merge Conflicts Modal */}
+      {showRollbackModal && rollbackTargetVersion && (
+        <div className="modal-overlay animate-fadeIn" onClick={() => setShowRollbackModal(false)}>
+          <div className="glass-panel w-full max-w-md p-8 m-4 animate-slideRight" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-11 h-11 rounded-2xl bg-accent-warning/20 flex items-center justify-center text-accent-warning text-xl">
+                <FaUndo />
+              </div>
+              <h2 className="text-xl font-display font-bold text-white uppercase">Temporal Shift</h2>
+            </div>
+
+            <div className="bg-white/5 rounded-2xl p-5 mb-8 border border-white/5">
+              <p className="text-[10px] font-black text-muted uppercase tracking-wider mb-2 font-display">Target Coordinate:</p>
+              <p className="font-bold text-white text-lg leading-snug">{rollbackTargetVersion.message}</p>
+              <p className="text-xs font-mono text-cyan-400/60 mt-1">HEX: {rollbackTargetVersion.id.substring(0, 16)}...</p>
+            </div>
+
+            <div className="space-y-4">
+              <div className="p-5 rounded-2xl border border-accent-success/20 bg-accent-success/5">
+                <h3 className="font-display font-bold text-accent-success mb-2 uppercase text-xs">Protocol: SOFT</h3>
+                <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">Safety Fork: Original timeline persists. New path created from this point.</p>
+                <input
+                  type="text"
+                  value={rollbackBranchName}
+                  onChange={(e) => setRollbackBranchName(e.target.value)}
+                  placeholder="New identifier..."
+                  className="input h-10 text-sm mb-4 bg-black/40"
+                />
+                <button onClick={handleSoftRollback} className="btn btn-success w-full h-11 text-[10px] uppercase font-bold tracking-widest">Execute Fork</button>
+              </div>
+
+              <div className="p-5 rounded-2xl border border-accent-danger/20 bg-accent-danger/5">
+                <h3 className="font-display font-bold text-accent-danger mb-2 uppercase text-xs">Protocol: HARD</h3>
+                <p className="text-[11px] text-slate-400 mb-4 leading-relaxed">Destructive Shift: Purges all snapshots ahead of this point in current vector.</p>
+                <button onClick={handleHardRollback} className="btn btn-danger w-full h-11 text-[10px] uppercase font-bold tracking-widest">Collapse Future</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDiffModal && selectedDiff && (
+        <div className="modal-overlay" onClick={() => setShowDiffModal(false)}>
+          <div className="glass-panel w-full max-w-6xl h-[85vh] flex flex-col m-4 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b border-white/5 flex items-center justify-between">
+              <h2 className="text-xl font-display font-black text-white uppercase tracking-tighter">Vector Analysis</h2>
+              <button onClick={() => setShowDiffModal(false)} className="text-slate-500 hover:text-white transition-colors"><FaTimes /></button>
+            </div>
+            <div className="flex-1 overflow-auto p-6 bg-black/40">
+              <DiffViewer
+                version1={selectedDiff.version1}
+                version2={selectedDiff.version2}
+                diff={selectedDiff.diff}
+              />
+            </div>
+            <div className="p-6 border-t border-white/5 flex justify-end">
+              <button onClick={() => setShowDiffModal(false)} className="btn btn-primary h-11 px-10 uppercase tracking-widest text-[10px]">End Analysis</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showHelp && (
+        <div className="modal-overlay" onClick={() => setShowHelp(false)}>
+          <div className="glass-panel w-full max-w-lg p-8 m-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl font-display font-black text-white italic tracking-tighter mb-8 decoration-cyan-500 decoration-4 underline underline-offset-8">SYSTEM_PROTOCOL</h2>
+            <div className="space-y-6">
+              {[
+                { k: '⌘ S', d: 'Immediate state snapshot' },
+                { k: '⌘ D', d: 'Toggle vector analysis' },
+                { k: '⌘ B', d: 'Initialize new fork' },
+                { k: 'ESC', d: 'Collapse overlays' }
+              ].map(s => (
+                <div key={s.k} className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/5">
+                  <kbd className="px-3 py-1 bg-black/50 border border-white/10 rounded-lg text-xs font-mono text-cyan-400">{s.k}</kbd>
+                  <span className="text-xs text-slate-400 font-medium">{s.d}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowHelp(false)} className="btn btn-primary w-full mt-10 h-12 uppercase tracking-[0.2em] font-black italic">Acknowledge</button>
+          </div>
+        </div>
+      )}
+
+      {showWelcome && (
+        <div className="modal-overlay">
+          <div className="glass-panel w-full max-w-lg p-10 text-center animate-fadeIn">
+            <div className="w-24 h-24 mx-auto mb-8 relative">
+              <div className="absolute inset-0 bg-cyan-500 blur-2xl opacity-20 animate-pulse" />
+              <div className="relative w-full h-full rounded-3xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center text-4xl text-deep shadow-2xl">
+                <FaRocket />
+              </div>
+            </div>
+            <h1 className="text-4xl font-display font-black text-white mb-3 tracking-tighter uppercase italic">Reality_Fork_v1.0</h1>
+            <p className="text-slate-400 mb-10 leading-relaxed font-medium">Coordinate parallel data timelines with precision. Select operational mode to begin.</p>
+            <div className="space-y-4">
+              <button onClick={() => handleLoadSample('quantumReactor')} className="btn btn-primary w-full h-14 justify-center text-xs tracking-[0.2em] uppercase font-black">Load Matrix Sample</button>
+              <button onClick={() => { initWithData({}, 'Initialization'); setShowWelcome(false); }} className="btn btn-secondary w-full h-14 justify-center text-xs tracking-[0.2em] uppercase font-bold">New Void Matrix</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {notification && (
+        <div className={`toast toast-${notification.type} shadow-[0_20px_60px_rgba(0,0,0,0.6)]`}>
+          <div className="flex items-center gap-3">
+            <FaInfoCircle className="text-lg opacity-80" />
+            <span className="text-[11px] font-bold uppercase tracking-wider">{notification.message}</span>
+          </div>
+        </div>
+      )}
+
       {mergeConflicts && pendingMerge && (
         <MergeConflicts
           conflicts={mergeConflicts}
           sourceBranch={pendingMerge.sourceBranch}
           targetBranch={pendingMerge.targetBranch}
           onResolve={handleResolveConflicts}
-          onCancel={() => {
-            setMergeConflicts(null);
-            setPendingMerge(null);
-          }}
+          onCancel={() => { setMergeConflicts(null); setPendingMerge(null); }}
         />
-      )}
-
-      {/* Welcome Modal */}
-      {showWelcome && (
-        <div className="modal-overlay animate-fadeIn">
-          <div className="glass-panel w-full max-w-lg p-8 text-center">
-            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-              <FaCodeBranch className="text-white text-3xl" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-100 mb-2">Welcome to Reality Fork</h2>
-            <p className="text-gray-400 mb-6">
-              A version control system for managing parallel realities of structured data.
-              Branch, diff, merge, and rollback with ease.
-            </p>
-            <div className="space-y-3">
-              <button
-                onClick={() => handleLoadSample('quantumReactor')}
-                className="btn btn-primary w-full justify-center"
-              >
-                <FaRocket /> Start with Sample Data
-              </button>
-              <button
-                onClick={() => {
-                  initWithData({}, 'Initialize empty reality');
-                  setShowWelcome(false);
-                }}
-                className="btn btn-secondary w-full justify-center"
-              >
-                Start with Empty State
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rollback Modal */}
-      {showRollbackModal && rollbackTargetVersion && (
-        <div className="modal-overlay animate-fadeIn" onClick={() => setShowRollbackModal(false)}>
-          <div
-            className="glass-panel w-full max-w-md p-6"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-full bg-orange-500/20 flex items-center justify-center">
-                <FaUndo className="text-orange-400" />
-              </div>
-              <div>
-                <h2 className="text-xl font-bold text-gray-100">Rollback Options</h2>
-                <p className="text-xs text-gray-400">Choose how to rollback to this version</p>
-              </div>
-            </div>
-
-            <div className="bg-gray-800/60 rounded-lg p-4 mb-4">
-              <p className="text-sm text-gray-300 mb-1">Target Version:</p>
-              <p className="font-medium text-gray-100">{rollbackTargetVersion.message}</p>
-              <p className="text-xs text-gray-500 mt-1">#{rollbackTargetVersion.id.substring(0, 8)}</p>
-            </div>
-
-            <div className="space-y-4">
-              {/* Soft Rollback */}
-              <div className="p-4 rounded-lg border border-green-500/30 bg-green-500/5">
-                <div className="flex items-center gap-2 mb-2">
-                  <FaCodeBranch className="text-green-400" />
-                  <h3 className="font-medium text-green-400">Soft Rollback</h3>
-                </div>
-                <p className="text-sm text-gray-400 mb-3">
-                  Creates a new branch from this version. All existing versions and branches remain intact.
-                </p>
-                <input
-                  type="text"
-                  value={rollbackBranchName}
-                  onChange={(e) => setRollbackBranchName(e.target.value)}
-                  placeholder="New branch name..."
-                  className="input mb-3 text-sm"
-                />
-                <button
-                  onClick={handleSoftRollback}
-                  className="btn btn-success w-full"
-                >
-                  <FaCodeBranch /> Create Branch & Switch
-                </button>
-              </div>
-
-              {/* Hard Rollback */}
-              <div className="p-4 rounded-lg border border-red-500/30 bg-red-500/5">
-                <div className="flex items-center gap-2 mb-2">
-                  <FaExclamationTriangle className="text-red-400" />
-                  <h3 className="font-medium text-red-400">Hard Rollback</h3>
-                </div>
-                <p className="text-sm text-gray-400 mb-3">
-                  <strong className="text-red-300">DESTRUCTIVE:</strong> Permanently deletes all versions after this point. This cannot be undone.
-                </p>
-                <button
-                  onClick={handleHardRollback}
-                  className="btn btn-danger w-full"
-                >
-                  <FaTrash /> Delete Future Versions
-                </button>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowRollbackModal(false)}
-              className="btn btn-secondary w-full mt-4"
-            >
-              <FaTimes /> Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Help Modal */}
-      {showHelp && (
-        <div className="modal-overlay animate-fadeIn" onClick={() => setShowHelp(false)}>
-          <div
-            className="glass-panel w-full max-w-lg p-6"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-100">Help & Shortcuts</h2>
-              <button onClick={() => setShowHelp(false)} className="text-gray-400 hover:text-gray-200">
-                <FaTimes />
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <h3 className="font-medium text-gray-200 mb-2">Keyboard Shortcuts</h3>
-                <div className="space-y-2 text-sm">
-                  {[
-                    ['Ctrl/Cmd + S', 'Quick commit'],
-                    ['Ctrl/Cmd + D', 'Toggle diff view'],
-                    ['Ctrl/Cmd + B', 'Create new branch'],
-                    ['Escape', 'Close modals'],
-                  ].map(([key, desc]) => (
-                    <div key={key} className="flex items-center justify-between">
-                      <kbd className="px-2 py-1 bg-gray-700 rounded text-xs font-mono">{key}</kbd>
-                      <span className="text-gray-400">{desc}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h3 className="font-medium text-gray-200 mb-2">Concepts</h3>
-                <div className="space-y-2 text-sm text-gray-400">
-                  <p><strong className="text-blue-400">Version:</strong> A snapshot of your data at a point in time.</p>
-                  <p><strong className="text-green-400">Branch:</strong> A parallel timeline for experimenting with changes.</p>
-                  <p><strong className="text-purple-400">Merge:</strong> Combine changes from two branches together.</p>
-                  <p><strong className="text-orange-400">Rollback:</strong> Restore data to a previous version.</p>
-                </div>
-              </div>
-            </div>
-
-            <button onClick={() => setShowHelp(false)} className="btn btn-primary w-full mt-6">
-              Got it!
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Notification Toast */}
-      {notification && (
-        <div className={`toast toast-${notification.type} animate-slideUp`}>
-          <div className="flex items-center gap-2">
-            <FaInfoCircle />
-            {notification.message}
-          </div>
-        </div>
       )}
     </div>
   );
