@@ -72,7 +72,7 @@ export default function BranchManager({
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="px-8 py-10 border-b border-white/5 bg-white/[0.02]">
+            <div className="px-8 py-12 border-b border-white/5 bg-white/[0.02] m-8">
                 <div className="flex items-center gap-4">
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 text-xl border border-indigo-500/20 shadow-[0_0_15px_rgba(129,140,248,0.1)]">
                         <FaCodeBranch />
@@ -156,7 +156,7 @@ export default function BranchManager({
             )}
 
             {/* Branch List */}
-            <div className="flex-1 overflow-y-auto px-8 py-10 space-y-6 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto px-8 py-12 space-y-8 scrollbar-hide">
                 {branchList.map(branchName => {
                     const info = branchInfo[branchName];
                     const isCurrent = branchName === currentBranch;
@@ -166,7 +166,7 @@ export default function BranchManager({
                             key={branchName}
                             onClick={() => !isCurrent && onSwitchBranch(branchName)}
                             className={`
-                                        group relative p-7 glass-panel transition-all duration-300
+                                        group relative p-9 glass-panel transition-all duration-300
                                         ${isCurrent ? 'border-indigo-500/50 bg-indigo-500/[0.03] scale-[1.02]' : 'hover:bg-white/[0.04] cursor-pointer'}
                                     `}
                         >
@@ -184,7 +184,7 @@ export default function BranchManager({
                             </div>
 
                             {info.version ? (
-                                <div className="space-y-4 mb-6">
+                                <div className="space-y-5 mb-8">
                                     <p className="text-[11px] font-medium text-slate-400 line-clamp-1 italic">"{info.version.message}"</p>
                                     <div className="flex items-center gap-2 opacity-60">
                                         <FaClock className="text-[10px] text-indigo-400" />
@@ -192,11 +192,11 @@ export default function BranchManager({
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-[11px] text-slate-600 italic mb-6">Void Matrix</p>
+                                <p className="text-[11px] text-slate-600 italic mb-8">Void Matrix</p>
                             )}
 
                             {!isCurrent && (
-                                <div className="flex gap-4">
+                                <div className="flex gap-6 mt-6">
                                     <button
                                         onClick={(e) => { e.stopPropagation(); onSwitchBranch(branchName); }}
                                         className="h-9 flex-1 bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-white transition-all"
