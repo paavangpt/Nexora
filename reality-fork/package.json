@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "postbuild": "rm -rf ../reality-fork-backend/public && mkdir -p ../reality-fork-backend/public && cp -r dist/* ../reality-fork-backend/public/",
     "lint": "eslint .",
     "preview": "vite preview"
   },
