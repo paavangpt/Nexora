@@ -65,16 +65,21 @@ app.get('*', (req, res) => {
 // Error handler (must be last)
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-    console.log(`
+// Start server only in local development
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+        console.log(`
     ╔═══════════════════════════════════════╗
     ║   Reality Fork API Server Running     ║
     ║   Port: ${PORT}                           ║
     ║   Environment: ${process.env.NODE_ENV || 'development'}             ║
     ╚═══════════════════════════════════════╝
   `);
-});
+    });
+}
+
+// Export for Vercel
+module.exports = app;
 
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {

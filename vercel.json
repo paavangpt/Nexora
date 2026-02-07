@@ -1,0 +1,28 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "reality-fork-backend/src/server.js",
+            "use": "@vercel/node",
+            "config": {
+                "includeFiles": [
+                    "reality-fork-backend/public/**"
+                ]
+            }
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "reality-fork-backend/src/server.js"
+        },
+        {
+            "src": "/uploads/(.*)",
+            "dest": "reality-fork-backend/src/server.js"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "reality-fork-backend/src/server.js"
+        }
+    ]
+}
